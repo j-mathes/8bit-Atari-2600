@@ -55,9 +55,9 @@ ScanLoop
         sta PF1		; set the PF1 playfield pattern register
         sta PF2		; set the PF2 playfield pattern register
         sta COLUBK	; set the background color
-        clc
+        clc		; CLear (C)arry flag
         adc #1		; increment A
-        dex
+        dex		; decrement X
         bne ScanLoop	; loop while X != 0
         
 ;-----------------------------------------------------------------
