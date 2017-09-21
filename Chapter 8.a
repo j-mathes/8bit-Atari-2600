@@ -1,0 +1,75 @@
+	processor 6502
+        
+        include "vcs.h"
+        include "macro.h"
+        org $f000	; start code at $f000
+
+;-------------------------------------------------------------
+; Chapter 8 - Color Sprites
+;
+;	Creating colored sprite tracking and defining a
+;	lookup for the sprite pixels
+;-------------------------------------------------------------
+
+Counter	equ $81		; variable in memory address $81
+SpriteHeight equ 17	; height of the sprite +1 for padding
+YPos	.byte		; Y coordinate of the sprite
+
+Start
+	CLEAN_START	; macro to safely clear memroy and TIA
+        
+        lda #5		; LoaD into the Accumulator the constant 5
+        sta YPos	; STore the value in the Accumulator to the YPos variable
+        		; This places the sprite's feet 5 scanlines up from 
+                        ; the bottom.  Using bottom-to-top coordinate system
+        
+NextFrame
+
+; The VERTICAL_SYNC macro gives us 3 lines of VSYNC
+	VERTICAL_SYNC
+
+        ldx #37		; count 37 scanlines
+LVBlank
+	sta WSYNC	; wait for next scanline
+        dex		; decrement x
+        bne LVBlank	; loop while x != 0
+;-----------------------------------------------------------------        
+; Main Body
+
+; Sprite Drawing Routine
+
+	ldx #192	; X contains the number of remaining scanlines
+        
+        txa		; transfer X to A
+        sec		; make sure (c)arry is set (needs to be set before subtraction)
+        sbc YPos	; SuBtract YPos from A register and put result in A
+        
+; <------------------------------  I'm here
+
+; Clear the background color and sprites before overscan
+; We don't need to use VBLANK necessarily
+
+	stx COLUBK
+        stx GRP0
+        stx GRP1
+        
+	ldx #30		; count 30 scanlines
+
+LVOver
+	sta WSYNC	; wait for the next scanline
+        dex		; decrement X
+        bne LVOver	; branch to LVOver while X != 0
+        
+; Cycle the sprite colors for the next frame
+
+	inc Counter	; increment Counter variable
+        lda Counter	; LoaD into Accumulator Counter
+        sta COLUP0	; STore contents of Accumulator into COLUP0
+        sta COLUP1	; STore contents of Accumulator into COLUP1
+
+;-----------------------------------------------------------------
+        jmp NextFrame	; jump to NextFrame label
+        
+        org $fffc
+        .word Start	; reset vector at $fffc
+        .word Start	; interrupt vector at $fffe (unused in VCS)
