@@ -1,0 +1,93 @@
+	processor 6502
+        
+        include "vcs.h"
+        include "macro.h"
+        org $f000	; start code at $f000
+
+;-------------------------------------------------------------
+; Chapter 7 - Players and Sprites
+;
+;	Only 2 sprites available on the 2600.
+;	8 bits wide and 1 bit high.
+;	Cannot position X or Y position directly.
+;	To position X, you wait until TIA clock hits a given X
+;	position and then write to a register to lock it in.
+;	To position Y, you wait until you are at the desired
+;	scanline and set the bits of your sprite to a non-zero
+;	value.
+;-------------------------------------------------------------
+
+Counter	equ $81		; variable in memory address $81
+
+Start
+	CLEAN_START	; macro to safely clear memroy and TIA
+        
+NextFrame
+
+; The VERTICAL_SYNC macro gives us 3 lines of VSYNC
+	VERTICAL_SYNC
+
+        ldx #37		; count 37 scanlines
+LVBlank
+	sta WSYNC	; wait for next scanline
+        dex		; decrement x
+        bne LVBlank	; loop while x != 0
+;-----------------------------------------------------------------        
+; Main Body
+
+; For the last VBLANK line, we'll lock in our sprites' X position.
+; The first one will be 20 TIA clocks from the left, plus whatever the
+; DEX and BNE instructions in the previous loop took.
+; There are 68 TIA clocks *before* the scanline starts, and there are
+; 3 TIA clocks per CPU cycle, so counting clocks (or trial-and-error)
+; is neccessary to get exact positioning.
+
+	SLEEP 20	; this macro hard-codes a 20 cycle delay 
+        		; (60 TIA (Television Interface Adaptor) clock ticks)
+        sta RESP0	; set position of sprite #1
+        SLEEP 35	; wait 35 more CPU cycles (105 TIA)
+        sta RESP1	; set position of sprite #2
+        
+; Draw the 192 scanlines
+; We'll draw both sprites all the way down the screen
+
+	ldx #192
+        lda #0		; this will change every scanline
+        ldy Counter	; this will change every frame
+        
+ScanLoop
+	sta WSYNC	; wait for the next scanline
+        sta COLUBK	; set the background color
+        sta GRP0	; set sprite 0 pixels
+        sta GRP1	; set sprite 1 pixels
+        adc #1		; increment A to cycle through the colors and bitmaps
+        dex		; decrement X
+        bne ScanLoop	; branch to ScanLoop while X not empty ( != 0 )
+        
+; Clear the background color and sprites before overscan
+; We don't need to use VBLANK necessarily
+
+	stx COLUBK
+        stx GRP0
+        stx GRP1
+        
+	ldx #30		; count 30 scanlines
+
+LVOver
+	sta WSYNC	; wait for the next scanline
+        dex		; decrement X
+        bne LVOver	; branch to LVOver while X != 0
+        
+; Cycle the sprite colors for the next frame
+
+	inc Counter	; increment Counter variable
+        lda Counter	; LoaD into Accumulator Counter
+        sta COLUP0	; STore contents of Accumulator into COLUP0
+        sta COLUP1	; STore contents of Accumulator into COLUP1
+
+;-----------------------------------------------------------------
+        jmp NextFrame	; jump to NextFrame label
+        
+        org $fffc
+        .word Start	; reset vector at $fffc
+        .word Start	; interrupt vector at $fffe (unused in VCS)
