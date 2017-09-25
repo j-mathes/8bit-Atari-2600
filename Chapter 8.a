@@ -2,7 +2,7 @@
         
         include "vcs.h"
         include "macro.h"
-        org $f000	; start code at $f000
+        org $f000		; start code at $f000
 
 ;-------------------------------------------------------------
 ; Chapter 8 - Color Sprites
@@ -11,40 +11,57 @@
 ;	lookup for the sprite pixels
 ;-------------------------------------------------------------
 
-Counter	equ $81		; variable in memory address $81
-SpriteHeight equ 17	; height of the sprite +1 for padding
-YPos	.byte		; Y coordinate of the sprite
+Counter	equ $81			; variable in memory address $81
+SpriteHeight equ 17		; height of the sprite +1 for padding
+YPos	.byte			; Y coordinate of the sprite
 
 Start
-	CLEAN_START	; macro to safely clear memroy and TIA
+	CLEAN_START		; macro to safely clear memroy and TIA
         
-        lda #5		; LoaD into the Accumulator the constant 5
-        sta YPos	; STore the value in the Accumulator to the YPos variable
-        		; This places the sprite's feet 5 scanlines up from 
-                        ; the bottom.  Using bottom-to-top coordinate system
+        lda #5			; LoaD into the Accumulator the constant 5
+        sta YPos		; YPos = 5
+        			; STore the value in the Accumulator to the YPos variable
+        			; This places the sprite's feet 5 scanlines up from 
+                        	; the bottom.  Using bottom-to-top coordinate system
         
 NextFrame
 
 ; The VERTICAL_SYNC macro gives us 3 lines of VSYNC
 	VERTICAL_SYNC
 
-        ldx #37		; count 37 scanlines
+        ldx #37			; count 37 scanlines
 LVBlank
-	sta WSYNC	; wait for next scanline
-        dex		; decrement x
-        bne LVBlank	; loop while x != 0
+	sta WSYNC		; wait for next scanline (STore the contents of the Accumulator into WSYNC
+        dex			; decrement x
+        bne LVBlank		; loop while x != 0
 ;-----------------------------------------------------------------        
 ; Main Body
 
 ; Sprite Drawing Routine
 
-	ldx #192	; X contains the number of remaining scanlines
+	ldx #192		; X contains the number of remaining scanlines
+LVScan        
+        txa			; transfer X to A
+        sec			; make sure (c)arry is set (needs to be set before subtraction)
+        sbc YPos		; SuBtract YPos from A register and put result in A
+
+	cmp #SpriteHeight	; are we inside the sprite bounds?
+        bcc InSprite		; if result < SpriteHeight
+yes
+	lda #0			; no, set index to blank entry
         
-        txa		; transfer X to A
-        sec		; make sure (c)arry is set (needs to be set before subtraction)
-        sbc YPos	; SuBtract YPos from A register and put result in A
+InSprite
+	tay			; transfer accumulator to Y
+        lda Frame0,y		; load bitmap data
         
-; <------------------------------  I'm here
+        sta WSYNC		; wait for the next scanline
+        sta GRP0		; set player 0 pixels
+        
+        lda ColorFrame,y	; load color data
+        sta COLUP0		; set player 0 color
+        
+        dex			; decrement x
+        bne LVScan		; repeat the next scanline until finished
 
 ; Clear the background color and sprites before overscan
 ; We don't need to use VBLANK necessarily
@@ -53,23 +70,49 @@ LVBlank
         stx GRP0
         stx GRP1
         
-	ldx #30		; count 30 scanlines
+	ldx #30			; count 30 scanlines
 
 LVOver
-	sta WSYNC	; wait for the next scanline
-        dex		; decrement X
-        bne LVOver	; branch to LVOver while X != 0
+	sta WSYNC		; wait for the next scanline
+        dex			; decrement X
+        bne LVOver		; branch to LVOver while X != 0
         
 ; Cycle the sprite colors for the next frame
 
-	inc Counter	; increment Counter variable
-        lda Counter	; LoaD into Accumulator Counter
-        sta COLUP0	; STore contents of Accumulator into COLUP0
-        sta COLUP1	; STore contents of Accumulator into COLUP1
+	inc Counter		; increment Counter variable
+        lda Counter		; LoaD into Accumulator Counter
+        sta COLUP0		; STore contents of Accumulator into COLUP0
+        sta COLUP1		; STore contents of Accumulator into COLUP1
 
 ;-----------------------------------------------------------------
-        jmp NextFrame	; jump to NextFrame label
+        jmp NextFrame		; jump to NextFrame label
         
         org $fffc
-        .word Start	; reset vector at $fffc
-        .word Start	; interrupt vector at $fffe (unused in VCS)
+        .word Start		; reset vector at $fffc
+        .word Start		; interrupt vector at $fffe (unused in VCS)
+        
+;------------------------------------------------------------------
+
+; Cat-head graphics data
+Frame0
+	.byte #0		; zero padding, also clears register
+        .byte #%00111100	; #AE
+        .byte #%01000010	; #AE
+        .byte #%11100111	; #AE
+        .byte #%11111111	; #AC
+        .byte #%10011001	; #8E
+        .byte #%01111110	; #8E
+        .byte #%11000011	; #98
+        .byte #%10000001	; #98
+        
+; Cat-head color data
+ColorFrame0
+	.byte #0		; unused for now
+        .byte #$AE;
+        .byte #$Ac;
+        .byte #$A8;
+        .byte #$AC;
+        .byte #$8E;
+        .byte #$8E;
+        .byte #$98;
+        .byte #$94;
