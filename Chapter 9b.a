@@ -60,16 +60,16 @@ DivideLoop
 	asl
 	
 ; The fine offset goes into HMP0
-	sta HMP0
-	
+	sta HMP0		; set fine position
+        
 ; Now let's fix the coarse position of the player, which as you
 ; remember is solely based on timing. If you rearrange any of the
 ; previous instructions, position 0 won't be exactly on the left side.
-	sta RESP0
-	
+	sta RESP0		; reset coarse position
+        
 ; Finally we'll do a WSYNC followed by HMOVE to apply the fine offset.
-	sta WSYNC		; 37th line
-	sta HMOVE		; apply offset
+	sta WSYNC		; wait for next scanline
+	sta HMOVE		; apply fine offset
 
 ; We'll see this method again, and it can be made into a subroutine
 ; that works on multiple objects.
