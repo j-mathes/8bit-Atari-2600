@@ -1,0 +1,130 @@
+	processor 6502
+        
+        include "vcs.h"
+        include "macro.h"
+        org $f000		; start code at $f000
+
+;-------------------------------------------------------------
+; Chapter 9a - Sprite Fine Positioning - Book Version
+;
+;	We're going to use a more clever way to position sprites
+;	("players") which relies on additional TIA features.
+;	we can only access 1 out of 3 possible positions using
+;	CPU delays alone.
+;	
+;	Additional TIA registers let us nudge the final position
+;	by discrete TIA clocks and thus target all 160 positions.
+;-------------------------------------------------------------
+
+Start
+	CLEAN_START		; macro to safely clear memroy and TIA
+        
+NextFrame
+
+; The VERTICAL_SYNC macro gives us 3 lines of VSYNC
+	VERTICAL_SYNC
+
+        ldx #37			; count 37 scanlines
+LVBlank
+	sta WSYNC		; wait for next scanline (STore the contents of the Accumulator into WSYNC
+        dex			; decrement x
+        bne LVBlank		; loop while x != 0
+	
+;-----------------------------------------------------------------        
+; Main Body
+
+; Instead of representing the horizontal position in CPU clocks,
+; we're going to use TIA clocks.
+	lda #70			; load constant #70 as horizontal position
+	sec			; SEt Carry flag
+	
+; We're going to divide the horizontal position by 15.
+; The easy way on the 6502 is to subtract in a loop.
+; Note that this also conveniently adds 5 CPU cycles
+; (15 TIA clocks) per iteration.
+	sta WSYNC		; 36th line
+	sta HMCLR		; reset the old horizontal position
+DivideLoop
+	sbc #15			; subtract 15
+	bcs DivideLoop		; branch until negative
+        
+; A now contains (the remainder - 15).
+; We'll convert that into a fine adjustment, which has
+; the range -8 to +7.
+	eor #7
+	asl			; HMOVE only uses the top 4 bits, so shift by 4
+	asl
+	asl
+	asl
+        
+; The fine offset goes into HMP0
+	sta HMP0		; set fine position
+        
+; Now let's fix the coarse position of the player, which as you
+; remember is solely based on timing. If you rearrange any of the
+; previous instructions, position 0 won't be exactly on the left side.
+	sta RESP0		; reset coarse position
+        
+; Finally we'll do a WSYNC followed by HMOVE to apply the fine offset.
+	sta WSYNC		; wait for next scanline
+	sta HMOVE		; apply fine offset
+
+; We'll see this method again, and it can be made into a subroutine
+; that works on multiple objects.
+
+; Now draw the 192 scanlines, drawing the sprite.
+; We've already set its horizontal position for the entire frame,
+; but we'll try to draw something real this time, some digits
+; lifted from another game.
+
+; Sprite Drawing Routine
+
+	ldx #192		; X contains the number of remaining scanlines
+	lda #0			; changes every scanline
+	ldy #0			; sprite data index
+	
+LVScan        
+	sta WSYNC		; wait for next scanline
+	sty COLUBK		; set the background color
+	lda NUMBERS,y
+	sta GRP0		; set sprite 0 pixels
+	iny
+	cpy #60
+	bcc Wrap1
+	ldy #0
+Wrap1
+        dex			; decrement x
+        bne LVScan		; repeat the next scanline until finished
+
+; Clear the background color and sprites before overscan
+	stx COLUBK
+        stx GRP0
+        
+	ldx #30			; count 30 scanlines
+
+LVOver
+	sta WSYNC		; wait for the next scanline
+        dex			; decrement X
+        bne LVOver		; branch to LVOver while X != 0
+
+;-----------------------------------------------------------------
+        jmp NextFrame		; jump to NextFrame label
+
+; Bitmap pattern for digits
+
+NUMBERS ;;{w:8,h:6,count:10,brev:1};;
+	.byte $EE,$AA,$AA,$AA,$EE,$00
+        .byte $22,$22,$22,$22,$22,$00
+        .byte $EE,$22,$EE,$88,$EE,$00
+        .byte $EE,$22,$66,$22,$EE,$00
+        .byte $AA,$AA,$EE,$22,$22,$00
+        .byte $EE,$88,$EE,$22,$EE,$00
+        .byte $EE,$88,$EE,$AA,$EE,$00
+        .byte $EE,$22,$22,$22,$22,$00
+        .byte $EE,$AA,$EE,$AA,$EE,$00
+        .byte $EE,$AA,$EE,$22,$EE,$00
+        
+; Epilogue
+        org $fffc
+        .word Start		; reset vector at $fffc
+        .word Start		; interrupt vector at $fffe (unused in VCS)
