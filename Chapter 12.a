@@ -1,0 +1,46 @@
+	processor 6502
+        
+        include "vcs.h"
+        include "macro.h"
+        include "xmacro.h"	; timer macros
+        
+        org $f000		; start code at $f000
+
+;-------------------------------------------------------------
+; Chapter 12 - The PIA Timer - book
+;
+; 	Minimal VCS program skeleton that outputs a proper
+;	262 line NTSC frame.
+;
+;-------------------------------------------------------------
+        
+Start
+	CLEAN_START		; macro to safely clear memroy and TIA
+        
+NextFrame
+;-----------------------------------------------------------------        
+; Vertical Sync - 3 lines
+	VERTICAL_SYNC		; macro gives us 3 lines of VSYNC
+        
+;-----------------------------------------------------------------        
+; Vertical Blank - 37 lines
+        TIMER_SETUP 37		; macro counts X scanlines
+        TIMER_WAIT		; macro waits for timer to complete
+
+;-----------------------------------------------------------------        
+; Main Body - 192 lines
+        TIMER_SETUP 192
+        TIMER_WAIT
+        
+;-----------------------------------------------------------------        
+; Overscan - 30 lines
+        TIMER_SETUP 30
+        TIMER_WAIT
+        
+        jmp NextFrame		; JuMP to NextFrame label
+        
+;-----------------------------------------------------------------        
+; Epilogue
+        org $fffc
+        .word Start		; reset vector at $fffc
+        .word Start		; interrupt vector at $fffe (unused in VCS)
