@@ -19,26 +19,26 @@
 ;-----------------------------------------------------------------        
 ; Declare variables
 
-PFPtr		word		; pointer to playfield data
-PFIndex		byte		; offset into playfield array
-PFCount 	byte		; lines left in this playfield segment
-Temp		byte		; temporary
-YPos		byte		; Y position of player sprite
-XPos		byte		; X position of player sprite
-SpritePtr 	word		; pointer to sprite bitmap table
-ColorPtr  	word		; pointer to sprite color table
+PFPtr		.word		; pointer to playfield data
+PFIndex		.byte		; offset into playfield array
+PFCount 	.byte		; lines left in this playfield segment
+Temp		.byte		; temporary
+YPos		.byte		; Y position of player sprite
+XPos		.byte		; X position of player sprite
+SpritePtr 	.word		; pointer to sprite bitmap table
+ColorPtr  	.word		; pointer to sprite color table
 
 ;-----------------------------------------------------------------        
 ; Temporary slots used during kernel
 
-Bit2p0		byte		; Player 0 Bitmap
-Colp0		byte		; Color Player 0
-YP0		byte		; Y position of Player 0
+Bit2p0		.byte		; Player 0 Bitmap
+Colp0		.byte		; Color Player 0
+YP0		.byte		; Y position of Player 0
 
 ;-----------------------------------------------------------------        
 ; Height of sprite in scanlines
 
-SpriteHeight	equ 9		; EQUate 9 with SpriteHeight (equ is a directive)
+SpriteHeight	.equ 9		; EQUate 9 with SpriteHeight
 
 ;-----------------------------------------------------------------        
 ; Code SEGment
