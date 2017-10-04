@@ -1,46 +1,58 @@
-	processor 6502
-        
-        include "vcs.h"
-        include "macro.h"
-        include "xmacro.h"	; timer macros
-
-        seg.u Variables
-	org $80
-
-PFPtr	word	; pointer to playfield data
-PFIndex	byte	; offset into playfield array
-PFCount byte	; lines left in this playfield segment
-Temp	byte	; temporary
-YPos	byte	; Y position of player sprite
-XPos	byte	; X position of player sprite
-SpritePtr word  ; pointer to sprite bitmap table
-ColorPtr  word  ; pointer to sprite color table
-
-; Temporary slots used during kernel
-Bit2p0	byte
-Colp0	byte
-YP0	byte
-
-; Height of sprite in scanlines
-SpriteHeight	equ 9
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-	seg Code        
-        org $f000		; start code at $f000
-
 ;-------------------------------------------------------------
 ; Chapter 15 - A Complex Scene, Part 1 - Online
 ;
 ; 	Complex playfield with a single sprite
 ;
 ;-------------------------------------------------------------
+	
+        processor 6502
+        
+        include "vcs.h"
+        include "macro.h"
+        include "xmacro.h"	; timer macros
+
+;-----------------------------------------------------------------        
+; Variables SEGment
+        seg.u Variables		; set Variables SEGment (uninitialized)
+	org $80			; start Variables at $80
+
+;-----------------------------------------------------------------        
+; Declare variables
+
+PFPtr		word		; pointer to playfield data
+PFIndex		byte		; offset into playfield array
+PFCount 	byte		; lines left in this playfield segment
+Temp		byte		; temporary
+YPos		byte		; Y position of player sprite
+XPos		byte		; X position of player sprite
+SpritePtr 	word		; pointer to sprite bitmap table
+ColorPtr  	word		; pointer to sprite color table
+
+;-----------------------------------------------------------------        
+; Temporary slots used during kernel
+
+Bit2p0		byte
+Colp0		byte
+YP0		byte
+
+;-----------------------------------------------------------------        
+; Height of sprite in scanlines
+
+SpriteHeight	equ 9
+
+;-----------------------------------------------------------------        
+; Code SEGment
+
+	seg Code        	; set Code SEGment
+        org $f000		; start Code at $f000
         
 Start
 	CLEAN_START		; macro to safely clear memroy and TIA
 	
+;-----------------------------------------------------------------        
 ; Set up initial pointers and player position        
-        lda #<PlayfieldData
+
+	lda #<PlayfieldData
         sta PFPtr
         lda #>PlayfieldData
         sta PFPtr+1
@@ -66,7 +78,7 @@ NextFrame
 ; Vertical Blank - 37 lines
         TIMER_SETUP 37		; macro counts X scanlines
 	
-	        lda #$88
+	lda #$88
         sta COLUBK	; bg color
         lda #$5b
         sta COLUPF	; fg color
@@ -76,6 +88,8 @@ NextFrame
         sta CTRLPF	; symmetry
         lda #0
         sta PFIndex	; reset playfield offset
+        
+;-----------------------------------------------------------------        
 ; Set temporary Y counter and set horizontal position
         lda YPos
         sta YP0		; yp0 = temporary counter
@@ -84,12 +98,15 @@ NextFrame
         jsr SetHorizPos
         sta WSYNC
         sta HMOVE	; gotta apply HMOVE
+
+;-----------------------------------------------------------------        
 ; Wait for end of VBLANK
         TIMER_WAIT		; macro waits for timer to complete
 
         sta WSYNC
         lda #0
         sta VBLANK
+
 ;-----------------------------------------------------------------        
 ; Main Body - 192 lines
 ; Set up timer (in case of bugs where we don't hit exactly)
@@ -98,6 +115,7 @@ NextFrame
         SLEEP 10 ; to make timing analysis work out
 	
 NewPFSegment
+;-----------------------------------------------------------------        
 ; Load a new playfield segment.
 ; Defined by length and then the 3 PF registers.
 ; Length = 0 means stop
@@ -105,6 +123,8 @@ NewPFSegment
         lda (PFPtr),y	; load length of next segment
         beq NoMoreSegs	; == 0, we're done
         sta PFCount	; save for later
+
+;-----------------------------------------------------------------        
 ; Preload the PF0/PF1/PF2 registers for after WSYNC
         iny
         lda (PFPtr),y	; load PF0
@@ -117,6 +137,8 @@ NewPFSegment
         iny
         sty PFIndex
         tay		; PF2 -> Y
+
+;-----------------------------------------------------------------        
 ; WSYNC, then store playfield registers
 ; and also the player 0 bitmap for line 2
         sta WSYNC
@@ -126,20 +148,27 @@ NewPFSegment
         lda Bit2p0	; player bitmap
         sta GRP0	; Bit2p0 -> GRP0
         sty PF2		; Y -> PF2
+
+;-----------------------------------------------------------------        
 ; Load playfield length, we'll keep this in X for the loop
         ldx PFCount
+
 KernelLoop
+;-----------------------------------------------------------------        
 ; Does this scanline intersect our sprite?
         lda #SpriteHeight	; height in 2xlines
         isb YP0			; INC yp0, then SBC yp0
         bcs .DoDraw		; inside bounds?
         lda #0			; no, load the padding offset (0)
+
 .DoDraw
+;-----------------------------------------------------------------        
 ; Load color value for both lines, store in temp var
 	pha			; save original offset
         tay			; -> Y
         lda (ColorPtr),y	; color for both lines
         sta Colp0		; -> colp0
+;-----------------------------------------------------------------        
 ; Load bitmap value for each line, store in temp var
 	pla
 	asl			; offset * 2
@@ -148,6 +177,7 @@ KernelLoop
         sta Bit2p0		; -> bit2p0
         iny
 	lda (SpritePtr),y	; bitmap for second line
+;-----------------------------------------------------------------        
 ; WSYNC and store values for first line
         sta WSYNC
         sta GRP0	; Bit1p0 -> GRP0
@@ -155,12 +185,15 @@ KernelLoop
         sta COLUP0	; Colp0 -> COLUP0
         dex
         beq NewPFSegment	; end of this playfield segment?
+;-----------------------------------------------------------------        
 ; WSYNC and store values for second line
         sta WSYNC
         lda Bit2p0
         sta GRP0	; Bit2p0 -> GRP0
         jmp KernelLoop
+
 NoMoreSegs
+;-----------------------------------------------------------------        
 ; Change colors so we can see when our loop ends
 	lda #0
         sta COLUBK
@@ -193,8 +226,11 @@ DivideLoop
 	sta HMP0,x	; set fine offset
 	rts		; return to caller
 
+;-----------------------------------------------------------------        
 ; Read joystick movement and apply to object 0
+
 MoveJoystick
+;-----------------------------------------------------------------        
 ; Move vertically
 ; (up and down are actually reversed since ypos starts at bottom)
 	ldx YPos
@@ -213,6 +249,7 @@ SkipMoveUp
         inx
 SkipMoveDown
 	stx YPos
+;-----------------------------------------------------------------        
 ; Move horizontally
         ldx XPos
 	lda #%01000000	;Left?
@@ -232,7 +269,8 @@ SkipMoveRight
 	stx XPos
 	rts
         
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;-----------------------------------------------------------------        
+; Lookup table data
 
         align $100; make sure data doesn't cross page boundary
 PlayfieldData
