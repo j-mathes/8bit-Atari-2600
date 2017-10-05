@@ -273,7 +273,7 @@ SkipMoveRight
 ; Lookup table data
 ;
 ;	height / PF0 / PF1 / PF2
-;	last 4 bits of PF0 are not used
+;	last 4 bits of PF0 are not used (#%nnnnXXXX)
 
         align $100; make sure data doesn't cross page boundary
 PlayfieldData
