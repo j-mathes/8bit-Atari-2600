@@ -53,21 +53,21 @@ Start
 ; Set up initial pointers and player position        
 
 	lda #<PlayfieldData	; LoaD A with lo byte address of PlayFieldData
-        sta PFPtr		; STore A to lo byte playfield pointer
+        sta PFPtr		; STore A -> lo byte playfield pointer
         lda #>PlayfieldData	; LoaD A with hi byte address of PlayFieldData
-        sta PFPtr+1		; STore A to hi byte playfield pointer
+        sta PFPtr+1		; STore A -> hi byte playfield pointer
         lda #<Frame0		; LoaD A with lo byte address of Frame0 sprite
-        sta SpritePtr		; STore A to lo byte sprite pointer
+        sta SpritePtr		; STore A -> lo byte sprite pointer
         lda #>Frame0		; LoaD A with hi byte address of Frame0 sprite
-        sta SpritePtr+1		; STore A to hi byte sprite pointer
+        sta SpritePtr+1		; STore A -> hi byte sprite pointer
         lda #<ColorFrame0	; LoaD A with lo byte address of ColorFrame0
-        sta ColorPtr		; STore A to lo byte sprite color pointer
+        sta ColorPtr		; STore A -> lo byte sprite color pointer
         lda #>ColorFrame0	; LoaD A with Hi byte address of ColorFrame0
-        sta ColorPtr+1		; STore A to hi byte sprite color pointer
+        sta ColorPtr+1		; STore A -> hi byte sprite color pointer
         lda #214		; LoaD A with y starting position for sprite
-        sta YPos		; STore A to YPos
+        sta YPos		; STore A -> YPos
         lda #76			; LoaD A with x starting position for sprite
-        sta XPos		; STore A to XPos
+        sta XPos		; STore A -> XPos
         
 NextFrame
 ;-----------------------------------------------------------------        
@@ -83,8 +83,8 @@ NextFrame
         lda #$5b		; hex $5b - pink
         sta COLUPF		; fg color
         lda #$68
-        sta COLUP0		; player color
-        lda #1			; LoaD A with #1
+        sta COLUP0		; STore A -> player color
+        lda #1			; LoaD A with #1 (flag to turn mirroring on)
         sta CTRLPF		; Playfield mirroring (bit D0 -> 0==normal, 1==mirrored)
         lda #0
         sta PFIndex		; reset playfield offset
@@ -95,17 +95,17 @@ NextFrame
         sta YP0			; yp0 = temporary counter
         lda XPos
         ldx #0
-        jsr SetHorizPos
-        sta WSYNC
-        sta HMOVE		; gotta apply HMOVE
+        jsr SetHorizPos		; Jump to SubRoutine SetHorizPos
+        sta WSYNC		; STore A -> WSYNC
+        sta HMOVE		; STore A -> HMOVE
 
 ;-----------------------------------------------------------------        
 ; Wait for end of VBLANK
         TIMER_WAIT		; macro waits for timer to complete
 
-        sta WSYNC
+        sta WSYNC		; STore A -> WSYNC
         lda #0
-        sta VBLANK
+        sta VBLANK		; STore A -> VBLANK
 
 ;-----------------------------------------------------------------        
 ; Main Body - 192 lines
@@ -114,7 +114,7 @@ NextFrame
         TIMER_SETUP 192
         SLEEP 10 		; to make timing analysis work out
 	
-NewPFSegment
+NewPFSegment	; ***** Continue Here *****
 ;-----------------------------------------------------------------        
 ; Load a new playfield segment.
 ; Defined by length and then the 3 PF registers.
