@@ -209,22 +209,25 @@ NoMoreSegs
         jsr MoveJoystick	; Jump to SubRoutine MoveJoystick
         TIMER_WAIT		; Timer wait macro
         jmp NextFrame		; JuMP to NextFrame label
-        
+
 SetHorizPos
-	sta WSYNC		; start a new line ********** Here ************
-        bit 0			; waste 3 cycles
-	sec			; set carry flag
+;-----------------------------------------------------------------        
+; Set Horizontal Position subroutine
+	sta WSYNC		; start a new line
+        bit 0			; waste 3 cycles (logical AND between 0 and Accum)
+	sec			; SEt Carry flag
 DivideLoop
-	sbc #15			; subtract 15
-	bcs DivideLoop		; branch until negative
-	eor #7			; calculate fine offset
-	asl
-	asl
-	asl
-	asl
-	sta RESP0,x		; fix coarse position
-	sta HMP0,x		; set fine offset
-	rts			; return to caller
+	sbc #15			; SuBtract with Carry 15
+	bcs DivideLoop		; Branch if Carry Set (until negative)
+	eor #7			; Exclusive OR A <-> #7 (calculate fine offset)
+        			; Shift left 4 times because HMOVE only uses the top 4 bits	
+        asl			; Arithmetic Shift Left A(Accum)
+	asl			; Arithmetic Shift Left A(Accum)
+	asl			; Arithmetic Shift Left A(Accum)
+	asl			; Arithmetic Shift Left A(Accum)
+	sta RESP0,x		; STore A -> RESP0 + X (Afix coarse position)
+	sta HMP0,x		; STore A -> HMPO + X (set fine offset)
+	rts			; ReTurn from Subroutine
 
 ;-----------------------------------------------------------------        
 ; Read joystick movement and apply to object 0
@@ -232,42 +235,46 @@ DivideLoop
 MoveJoystick
 ;-----------------------------------------------------------------        
 ; Move vertically
-; (up and down are actually reversed since ypos starts at bottom)
-	ldx YPos
-	lda #%00100000		;Up?
-	bit SWCHA
-	bne SkipMoveUp
-        cpx #175
-        bcc SkipMoveUp
-        dex
+; 
+; It appears that the Y extents are between 175 and 254
+; ***up and down are actually reversed since ypos starts at bottom 
+	ldx YPos		; LoaD YPos -> X
+        			; #%nnnn0000 binary bit mask for Player 0 Joystick
+	lda #%00100000		; LoaD bitmask -> A (***Up?)
+	bit SWCHA		; BIt Test Target <-> A (logical AND between target and Accum)
+        			; and sets Z flag to 1 if the bits are equal
+	bne SkipMoveUp		; Branch if Z flag is Not Equal to 1
+        cpx #175		; ComPare X -> #175 ("bottom" extent)
+        bcc SkipMoveUp		; Branch if Carry Clear
+        dex			; DEcrement X
 SkipMoveUp
-	lda #%00010000		;Down?
-	bit SWCHA 
-	bne SkipMoveDown
-        cpx #254
-        bcs SkipMoveDown
-        inx
+	lda #%00010000		; LoaD bitmask -> A (***Down?)
+	bit SWCHA 		; BIt Test Target <-> A (logical AND between target and Accum)
+	bne SkipMoveDown	; Branch if Z flag is Not Equal to 1
+        cpx #254		; ComPare X -> #254 ("top" extent)
+        bcs SkipMoveDown	; Branch if Carry Set
+        inx			; INcrement X
 SkipMoveDown
-	stx YPos
+	stx YPos		; STore X -> YPos
 ;-----------------------------------------------------------------        
 ; Move horizontally
-        ldx XPos
-	lda #%01000000		;Left?
-	bit SWCHA
-	bne SkipMoveLeft
-        cpx #1
-        bcc SkipMoveLeft
-        dex
+        ldx XPos		; LoaD XPos -> X
+	lda #%01000000		; LoaD bitmask -> A (Left?)
+	bit SWCHA		; BIt Test Target <-> A (logical AND between target and Accum)
+	bne SkipMoveLeft	; Branch if Z flag is Not Equal to 1
+        cpx #1			; ComPare X -> #1
+        bcc SkipMoveLeft	; Branch if Carry Clear
+        dex			; DeCrement X
 SkipMoveLeft
 	lda #%10000000		;Right?
-	bit SWCHA 
-	bne SkipMoveRight
-        cpx #153
-        bcs SkipMoveRight
-        inx
+	bit SWCHA 		; BIt Test Target <-> A (logical AND between target and Accum)
+	bne SkipMoveRight	; Branch if Z flag is Not Equal to 1
+        cpx #153		; ComPare X -> #153
+        bcs SkipMoveRight	; Branch if Carry Set
+        inx			; INcrememt X
 SkipMoveRight
-	stx XPos
-	rts
+	stx XPos		; STore X -> XPos
+	rts			; ReTurn from Subroutine
         
 ;-----------------------------------------------------------------        
 ; Lookup table data
@@ -324,6 +331,6 @@ ColorFrame0
         
 ;-----------------------------------------------------------------
 ; Epilogue
-        org $fffc
+        org $fffc		; start at $fffc
         .word Start		; reset vector at $fffc
         .word Start		; interrupt vector at $fffe (unused in VCS)
