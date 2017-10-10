@@ -32,9 +32,9 @@ Temp	.byte			; temporary
         
 Start
 	CLEAN_START		; macro to safely clear memroy and TIA
-        lda #$01		; LoaD BCD number -> A
+        lda #$32		; LoaD BCD number -> A
         sta Score0		; STore A -> Score 0
-        lda #$01		; LoaD BCD number -> A
+        lda #$68		; LoaD BCD number -> A
         sta Score1		; STore A -> Score 1
 
 NextFrame
@@ -119,65 +119,69 @@ GetBCDBitmap subroutine
 	pha		; PusH A -> Stack - save original BCD number
         and #$0F	; logical AND - mask out the least significant digit
         sta Temp	; STore A -> Temp
-        asl		; Arithmetic Shift Left
-        asl		; Arithmetic Shift Left
+        asl		; Arithmetic Shift Left -> A
+        asl		; Arithmetic Shift Left -> A
         adc Temp	; ADd with Carry A -> Temp - multiply by 5
         tay		; Transfer A -> Y
         lda #5		; LoaD #5 -> A
         sta Temp	; STore A -> Temp - count down from 5
 .loop1
-        lda DigitsBitmap,y
-        and #$0F	; mask out leftmost digit
-        sta FontBuf,x	; store leftmost digit
-        iny
-        inx
-        dec Temp
-        bne .loop1
+        lda DigitsBitmap,y	; LoaD (memory location DigitsBitmap + Y) -> A
+        and #$0F	; logical AND - mask out leftmost digit
+        sta FontBuf,x	; STore A -> FontBuf,x (leftmost digit)
+        iny		; INcrement Y
+        inx		; INcrement X
+        dec Temp	; DECrement Temp
+        bne .loop1	; Branch if Z flag is Not Equal to 1
 ; Now do the 2nd digit
         pla		; Pull A <- Stack - restore original BCD number
-        lsr
-        lsr
-        lsr
-        lsr		; shift right by 4 (in BCD, divide by 10)
-        sta Temp
-        asl
-        asl
-        adc Temp	; multiply by 5
-        tay		; -> Y
-        dex
-        dex
-        dex
-        dex
-        dex		; subtract 5 from X (reset to original)
-        lda #5
-        sta Temp	; count down from 5
+        lsr		; Logical Shift Right -> A
+        lsr		; Logical Shift Right -> A
+        lsr		; Logical Shift Right -> A
+        lsr		; Logical Shift Right -> A - by 4 (in BCD, divide by 10)
+        sta Temp	; STore A -> Temp
+        asl		; Arithmetic Shift Left -> A
+        asl		; Arithmetic Shift Left -> A
+        adc Temp	; ADd with Carry A -> Temp - multiply by 5
+        tay		; Transfer A -> Y
+        dex		; DEcrement X
+        dex		; DEcrement X
+        dex		; DEcrement X
+        dex		; DEcrement X
+        dex		; DEcrement X - subtract 5 from X (reset to original)
+        lda #5		; LoaD #5 -> A
+        sta Temp	; STore A -> Temp - count down from 5
 .loop2
-        lda DigitsBitmap,y
+        lda DigitsBitmap,y	; LoaD (memory location DigitsBitmap + Y) -> A
         and #$F0	; mask out leftmost digit
         ora FontBuf,x	; combine left and right digits
         sta FontBuf,x	; store combined digits
-        iny
-        inx
-        dec Temp
-        bne .loop2
-	rts
+        iny		; INcrement Y
+        inx		; INcrement X
+        dec Temp	; DECrement Temp
+        bne .loop2	; Branch if Z flag is Not Equal to 1
+	rts		; ReTurn from Subroutine
 
-	org $FF00
 
+	org $FF00	; start the following at $FF00
+;-----------------------------------------------------------------
 ; Bitmap pattern for digits
-DigitsBitmap ;;{w:8,h:6,count:10,brev:1};;
-        .byte $EE,$AA,$AA,$AA,$EE,$00
-        .byte $22,$22,$22,$22,$22,$00
-        .byte $EE,$22,$EE,$88,$EE,$00
-        .byte $EE,$22,$66,$22,$EE,$00
-        .byte $AA,$AA,$EE,$22,$22,$00
-        .byte $EE,$88,$EE,$22,$EE,$00
-        .byte $EE,$88,$EE,$AA,$EE,$00
-        .byte $EE,$22,$22,$22,$22,$00
-        .byte $EE,$AA,$EE,$AA,$EE,$00
-        .byte $EE,$AA,$EE,$22,$EE,$00
+; Removed the trailing ',$00' to make the numbers display properly
+; Original comment was ;;{w:8,h:6,count:10,brev:1};;
+DigitsBitmap ;;{w:8,h:5,count:10,brev:1};;
+        .byte $EE,$AA,$AA,$AA,$EE
+        .byte $22,$22,$22,$22,$22
+        .byte $EE,$22,$EE,$88,$EE
+        .byte $EE,$22,$66,$22,$EE
+        .byte $AA,$AA,$EE,$22,$22
+        .byte $EE,$88,$EE,$22,$EE
+        .byte $EE,$88,$EE,$AA,$EE
+        .byte $EE,$22,$22,$22,$22
+        .byte $EE,$AA,$EE,$AA,$EE
+        .byte $EE,$AA,$EE,$22,$EE
         
+;-----------------------------------------------------------------
 ; Epilogue
-	org $fffc
-        .word Start
-        .word Start
+        org $fffc		; start at $fffc
+        .word Start		; reset vector at $fffc
+        .word Start		; interrupt vector at $fffe (unused in VCS)
