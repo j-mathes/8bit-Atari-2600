@@ -82,24 +82,24 @@ Start
         
 ;-----------------------------------------------------------------
 ; Set player 0 horizontal position
-	lda #80
-        ldx #0
-        jsr SetHorizPos2
+	lda #80			; set to 80 pixels across
+        ldx #0			; set index of object (0 == Player 0)
+        jsr SetHorizPos2	; Jump to SubRoutine
         
 ;-----------------------------------------------------------------
 ; Set ball horizontal position
-	lda #84
-        ldx #4
-        jsr SetHorizPos2
-	sta WSYNC
-	sta HMOVE
+	lda #84			; set to 84 pixels across
+        ldx #4			; set index of object (4 == ball)
+        jsr SetHorizPos2	; Jump to SubRoutine
+	sta WSYNC		; STore A -> wSYNC
+	sta HMOVE		; STore A -> HMOVE
         
 ;-----------------------------------------------------------------
 ; Set ball initial velocity
-	lda #1
-        sta yballvel
-        lda #$30
-        sta xballvel
+	lda #1			; LoaD #1 -> A
+        sta yballvel		; STore A -> ball's Y Velocity
+        lda #$30		; LoaD $30 -> A
+        sta xballvel		; STore A -> ball's X Velocity
 
 ;-----------------------------------------------------------------
 ; Next frame loop
@@ -111,40 +111,40 @@ NextFrame
 
 ;-----------------------------------------------------------------
 ; in case the ball is on screen
-        lda ColorFrame0	; load 1st entry of color data
-        sta COLUP0	; set sprite 0 color
+        lda ColorFrame0		; load 1st entry of color data
+        sta COLUP0		; set sprite 0 color
         
 ;-----------------------------------------------------------------
 ; Set up playfield
-        lda #BGCOLOR	; set the background color
-        sta COLUBK	
-        lda #PLCOLOR	; set the playfield color
-        sta COLUPF
-        lda #%00010101	; playfield reflection and ball size/priority
-        sta CTRLPF
-        lda #0		; blank out the playfield
-        sta PF0
-        sta PF1
-        sta PF2
+        lda #BGCOLOR		; set the background color
+        sta COLUBK		; STore A -> COLUBK
+        lda #PLCOLOR		; set the playfield color
+        sta COLUPF		; STore A -> COLUPF
+        lda #%00010101		; playfield reflection and ball size/priority
+        sta CTRLPF		; STore A -> CTRLPF
+        lda #0			; blank out the playfield
+        sta PF0			; STore A -> PF0
+        sta PF1			; STore A -> PF1
+        sta PF2			; STore A -> PF2
 
 ;-----------------------------------------------------------------
 ; 37 lines of VBLANK
-        ldx #37
+        ldx #37			; LoaD #37 -> X
 Underscan
-	sta WSYNC
-	dex
-	bne Underscan
+	sta WSYNC		; STore A -> WSYNC
+	dex			; DEcrement X
+	bne Underscan		; Branch Not Equal - branch if Z flag !- 1
 
 ;-----------------------------------------------------------------
 ; Draw 192 scanlines
 ; First, 20 lines at top of screen
-        ldx #0
+        ldx #0			; LoaD #0 -> X
 ScanLoop1
-	sta WSYNC
-        stx PF1
-        inx
-        cpx #20
-        bne ScanLoop1
+	sta WSYNC		; STore A -> WSYNC
+        stx PF1			; Store X -> PF1
+        inx			; INcrement X
+        cpx #20			; ComPare X <-> 20 - set Z flag =1 if EQ
+        bne ScanLoop1		; Branch Not Equal - branch if Z flag != 1
 
 ;-----------------------------------------------------------------
 ; Top border of screen (8 lines)
@@ -152,11 +152,11 @@ ScanLoop2
 
 ;-----------------------------------------------------------------
 ; Fetch 1st part of bitmap data from table (we start on 20th line)
-        lda #TopBorder0-20,x
+        lda #TopBorder0-20,x	;***** HERE *****
 	sta WSYNC
         sta PF0
-        DRAW_BALL	; draw the ball on this line?
-        		; (only for collision purposes)
+        DRAW_BALL		; draw the ball on this line?
+        			; (only for collision purposes)
 ;-----------------------------------------------------------------
 ; Fetch 2nd and 3rd parts of bitmap
 	lda #TopBorder1-20,x
@@ -175,7 +175,7 @@ ScanLoop2
         sta PF2
 ScanLoop3
 	sta WSYNC
-        DRAW_BALL	; draw the ball on this line?
+        DRAW_BALL		; draw the ball on this line?
         inx
         cpx #128
         bne ScanLoop3
@@ -204,22 +204,22 @@ InSprite
         lda ColorFrame0,y	; load color data
         pha			; push color data onto stack
         tya
-        clc		; clear carry flag
-        adc animofs	; add animation offset (not for color though)
+        clc			; clear carry flag
+        adc animofs		; add animation offset (not for color though)
         tay
-        lda Frame0,y	; load bitmap data
-	sta WSYNC	; wait for next scanline (as late as possible!)
-        sta GRP0	; set sprite 0 pixels
-        pla		; pull bitmap data from stack
-        sta COLUP0	; set sprite 0 color
-        DRAW_BALL	; draw the ball on this line?
+        lda Frame0,y		; load bitmap data
+	sta WSYNC		; wait for next scanline (as late as possible!)
+        sta GRP0		; set sprite 0 pixels
+        pla			; pull bitmap data from stack
+        sta COLUP0		; set sprite 0 color
+        DRAW_BALL		; draw the ball on this line?
         inx
         cpx #184
-	bne ScanLoop4	; repeat next scanline until finished
+	bne ScanLoop4		; repeat next scanline until finished
 
 ;-----------------------------------------------------------------
 ; 8 more pixels for bottom border
-        lda #GNDCOLOR	; set the background color
+        lda #GNDCOLOR		; set the background color
         sta COLUPF
 ScanLoop5
         lda #$ff
@@ -248,10 +248,10 @@ ScanLoop5
 ;-----------------------------------------------------------------
 ; Check for collisions
         lda #%01000000
-	bit CXP0FB	; collision between player 0 and ball?
+	bit CXP0FB		; collision between player 0 and ball?
         bne PlayerCollision
         lda #%10000000
-        bit CXBLPF	; collision between playfield and ball?
+        bit CXBLPF		; collision between playfield and ball?
         bne PlayfieldCollision
         beq NoCollision
 ;-----------------------------------------------------------------
@@ -264,12 +264,12 @@ PlayerCollision
 	bmi ButtonNotPressed	;skip if button not pressed
         inc captured		; set capture flag
         lda #SpriteHeight
-        sta animofs	; use different bitmap when captured
+        sta animofs		; use different bitmap when captured
         bne NoCollision
 ButtonNotPressed
 	lda #0
-	sta captured	; clear capture flag
-        sta animofs	; use regular bitmap
+	sta captured		; clear capture flag
+        sta animofs		; use regular bitmap
 
 ;-----------------------------------------------------------------
 ; See if we bounce off of top half or bottom half  of player
@@ -280,8 +280,8 @@ ButtonNotPressed
         adc #SpriteHeight/2
         sec
         sbc yball
-        bmi StoreVel	; bottom half, bounce down
-	ldx #$ff	; top half, bounce up
+        bmi StoreVel		; bottom half, bounce down
+	ldx #$ff		; top half, bounce up
         bne StoreVel
         
 PlayfieldCollision
@@ -304,9 +304,9 @@ StoreVel
 ; Make a little sound
 	txa
         adc #45
-	sta AUDF0	; frequency
+	sta AUDF0		; frequency
         lda #6
-        sta avol0	; shadow register for volume
+        sta avol0		; shadow register for volume
         
 NoCollision
 ;-----------------------------------------------------------------
@@ -349,13 +349,13 @@ ballMoveLeft
 
 ballCaptured
         sta WSYNC
-        sta HMOVE	; apply the move(s)
+        sta HMOVE		; apply the move(s)
         sta HMCLR
 
 ;-----------------------------------------------------------------
 ; Joystick movement
 ; For up and down, we INC or DEC the Y Position
-	lda #%00010000	;Up?
+	lda #%00010000		;Up?
 	bit SWCHA 
 	bne SkipMoveUp
         ldx yplyr
@@ -363,12 +363,12 @@ ballCaptured
         bcc SkipMoveUp
         dex
         stx yplyr
-        lda captured	; captured? move the ball too
+        lda captured		; captured? move the ball too
         beq SkipMoveUp
         dec yball
 
 SkipMoveUp
-	lda #%00100000	;Down?
+	lda #%00100000		;Down?
 	bit SWCHA 
 	bne SkipMoveDown
         ldx yplyr
@@ -376,7 +376,7 @@ SkipMoveUp
         bcs SkipMoveDown
         inx
         stx yplyr
-        lda captured	; captured? move the ball too
+        lda captured		; captured? move the ball too
         beq SkipMoveDown
         inc yball
 
@@ -385,37 +385,37 @@ SkipMoveDown
 ; Note that the horizontal position is not contained in RAM,
 ; but inaccessibly inside the TIA's registers! Some games can
 ; get away with this if they use the collision registers.
-	ldx #0		; assume speed is 0 if no movement
-	lda #%01000000	;Left?
+	ldx #0			; assume speed is 0 if no movement
+	lda #%01000000		;Left?
 	bit SWCHA
 	bne SkipMoveLeft
-	ldx #$10	;a 1 in the left nibble means go left
+	ldx #$10		;a 1 in the left nibble means go left
 
 SkipMoveLeft
-	lda #%10000000	;Right?
+	lda #%10000000		;Right?
 	bit SWCHA
 	bne SkipMoveRight
-	ldx #$F0	;a -1 in the left nibble means go right...
+	ldx #$F0		;a -1 in the left nibble means go right...
 
 SkipMoveRight
-	stx HMP0	; set the move for player 0
-        lda captured	; captured? move the ball too
+	stx HMP0		; set the move for player 0
+        lda captured		; captured? move the ball too
         beq NoCaptureMove
-        stx HMBL	; set ball move register
+        stx HMBL		; set ball move register
 
 NoCaptureMove
         sta WSYNC
-        sta HMOVE	; apply the move(s)
+        sta HMOVE		; apply the move(s)
 
 ;-----------------------------------------------------------------
 ; Play audio from shadow register
 	ldx avol0
         beq NoAudio
-        dex		; decrement volume every frame
-	stx AUDV0	; store in volume hardware register
-        stx avol0	; store in shadow register
+        dex			; decrement volume every frame
+	stx AUDV0		; store in volume hardware register
+        stx avol0		; store in shadow register
         lda #3
-        sta AUDC0	; shift counter mode 3 for weird bounce sound
+        sta AUDC0		; shift counter mode 3 for weird bounce sound
 
 NoAudio
 ;-----------------------------------------------------------------
@@ -439,23 +439,23 @@ NoAudio
 ; a HMOVE and HMCLR. So it takes two scanlines to complete.
 
 SetHorizPos2
-        sta WSYNC	; start a new line
-        sec		; set carry flag
+        sta WSYNC		; start a new line
+        sec			; set carry flag
 
 DivideLoop
-	sbc #15		; subtract 15
-	bcs DivideLoop	; branch until negative
-	eor #7		; calculate fine offset
+	sbc #15			; subtract 15
+	bcs DivideLoop		; branch until negative
+	eor #7			; calculate fine offset
         asl
         asl
         asl
         asl
-        sta RESP0,x	; fix coarse position
-        sta HMP0,x	; set fine offset
+        sta RESP0,x		; fix coarse position
+        sta HMP0,x		; set fine offset
         sta WSYNC
-        sta HMOVE	; apply the previous fine position(s)
-	sta HMCLR	; reset the old horizontal position(s)
-        rts		; return to caller 
+        sta HMOVE		; apply the previous fine position(s)
+	sta HMCLR		; reset the old horizontal position(s)
+        rts			; return to caller 
 
 ;-----------------------------------------------------------------
 ; Height of our sprite in lines
@@ -506,7 +506,7 @@ Frame1
 ;-----------------------------------------------------------------
 ; Color data for each line of sprite
 ColorFrame0
-	.byte #$FF	; ball color if not sharing line with player sprite
+	.byte #$FF		; ball color if not sharing line with player sprite
         .byte #$F6;
         .byte #$86;
         .byte #$86;
