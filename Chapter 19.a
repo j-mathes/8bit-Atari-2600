@@ -37,9 +37,6 @@
 
 ;-----------------------------------------------------------------        
 ; Declare variables
-
-
-
 counter		.byte		; increments each frame
 yplyr		.byte		; player y pos
 yball		.byte		; ball y pos
@@ -71,7 +68,6 @@ GNDCOLOR	equ $c0		; green
 
 ;-----------------------------------------------------------------        
 ; Code SEGment
-
 	seg Code        	; set Code SEGment
         org $f000		; start Code at $f000
         
