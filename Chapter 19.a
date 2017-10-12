@@ -152,33 +152,34 @@ ScanLoop2
 
 ;-----------------------------------------------------------------
 ; Fetch 1st part of bitmap data from table (we start on 20th line)
-        lda #TopBorder0-20,x	;***** HERE *****
-	sta WSYNC
-        sta PF0
-        DRAW_BALL		; draw the ball on this line?
+        lda #TopBorder0-20,x	; LoaD (constant (TopBorder0-20) + contents of x) -> A
+	sta WSYNC		; STore A -> WSYNC - Wait for SYNC - Halts microprocessor
+        			;                    until beam reaches right edge of screen
+        sta PF0			; STore A -> PF0 - PlayField 0
+        DRAW_BALL		; draw the ball on this line? - macro defined above
         			; (only for collision purposes)
 ;-----------------------------------------------------------------
 ; Fetch 2nd and 3rd parts of bitmap
-	lda #TopBorder1-20,x
-        sta PF1
-        lda #TopBorder2-20,x
-        sta PF2
-        inx
-        cpx #28
-        bne ScanLoop2
+	lda #TopBorder1-20,x	; LoaD (constant value + x register) -> A
+        sta PF1			; STore A -> PF1
+        lda #TopBorder2-20,x	; LoaD (constant + X) -> A
+        sta PF2			; STore A -> PF2
+        inx			; INcrement X
+        cpx #28			; ComPare X <-> 28 - set Z if equal
+        bne ScanLoop2		; Branch if Z Not Equal to 1
 
 ;-----------------------------------------------------------------
 ; Top half of screen (100 pixels)
-        lda #0
-        sta PF0
-        sta PF1
-        sta PF2
+        lda #0			; LoaD 0 -> A
+        sta PF0			; STore A -> PF0
+        sta PF1			; STore A -> PF1
+        sta PF2			; STore A -> PF2
 ScanLoop3
-	sta WSYNC
+	sta WSYNC		; STore A -> Wait for SYNC
         DRAW_BALL		; draw the ball on this line?
-        inx
-        cpx #128
-        bne ScanLoop3
+        inx			; INcrement X
+        cpx #128		; ComPare X <-> 128 - set Z if equal
+        bne ScanLoop3		; Branch if Z Not Equal to 1
 
 ;-----------------------------------------------------------------
 ; Bottom half of screen with sprite
@@ -186,7 +187,7 @@ ScanLoop3
 ; sprite lookup tables (it can exceed bounds, we'll test)
 ; Since the sprite table is reversed, the starting offset is
 ; Yplyr - Ystart - SpriteHeight
-	lda yplyr
+	lda yplyr		; *** Here ***
         sec
         sbc #128-SpriteHeight
         sta ysprofs
