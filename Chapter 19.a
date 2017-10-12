@@ -187,43 +187,46 @@ ScanLoop3
 ; sprite lookup tables (it can exceed bounds, we'll test)
 ; Since the sprite table is reversed, the starting offset is
 ; Yplyr - Ystart - SpriteHeight
-	lda yplyr		; *** Here ***
-        sec
-        sbc #128-SpriteHeight
-        sta ysprofs
+	lda yplyr		; LoaD player y position -> A
+        sec			; SEt Carry flag to 1
+        sbc #128-SpriteHeight	; SuBtract with Carry A-(128-SpriteHeight)
+        sta ysprofs		; STore A -> temp sprite offset
+        
 ScanLoop4
-
 ;-----------------------------------------------------------------
 ; Is this scanline within sprite bounds?
-	dec ysprofs
-	lda ysprofs
-        cmp #SpriteHeight	; sprite is 16 pixels high + padding
-        bcc InSprite
-        lda #0		; no sprite, draw the padding
+	dec ysprofs		; DECrement temp sprite offset
+	lda ysprofs		; LoaD A -> temp sprite offset
+        cmp #SpriteHeight	; CoMPare A <-> memory loc - if A==M set Z
+        			; (sprite is 16 pixels high + padding)
+        bcc InSprite		; Branch if Carry Clear (if Z==0)
+        lda #0			; no sprite, draw the padding
 InSprite
-	tay
-        lda ColorFrame0,y	; load color data
-        pha			; push color data onto stack
-        tya
-        clc			; clear carry flag
-        adc animofs		; add animation offset (not for color though)
-        tay
-        lda Frame0,y		; load bitmap data
-	sta WSYNC		; wait for next scanline (as late as possible!)
-        sta GRP0		; set sprite 0 pixels
-        pla			; pull bitmap data from stack
-        sta COLUP0		; set sprite 0 color
+	tay			; Transfer A -> Y
+        lda ColorFrame0,y	; LoaD color data (memoryaddress + y) -> A
+        pha			; PusH A (color data) onto stack
+        tya			; Transfer Y -> A
+        clc			; CLear Carry flag
+        adc animofs		; ADd memory + accumulator + Carry
+        			; animation offset (not for color though)
+        tay			; Transfer A -> Y
+        lda Frame0,y		; LoaD bitmap data (memoryaddress + y) -> A
+	sta WSYNC		; STore A -> Wait for next scanline (as late as possible!)
+        sta GRP0		; STore A -> sprite 0 pixels (GRaphics bitmap Player 0)
+        pla			; PuLl to Accumulator - bitmap data from stack
+        sta COLUP0		; STore A -> (COlor/LUminence Player 0) set sprite 0 color
         DRAW_BALL		; draw the ball on this line?
-        inx
-        cpx #184
-	bne ScanLoop4		; repeat next scanline until finished
+        inx			; INcrement X
+        cpx #184		; ComPare X <-> 184 - set Z if equal
+	bne ScanLoop4		; Branch if Z != 1 - repeat next scanline until finished
 
 ;-----------------------------------------------------------------
 ; 8 more pixels for bottom border
-        lda #GNDCOLOR		; set the background color
-        sta COLUPF
+        lda #GNDCOLOR		; LoaD background color -> A
+        sta COLUPF		; STore A -> COlor/LUminance PlayField
+        			; set the background color
 ScanLoop5
-        lda #$ff
+        lda #$ff		; **** Here ****
 	sta WSYNC
         sta PF0
         sta PF1
