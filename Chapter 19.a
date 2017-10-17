@@ -222,46 +222,49 @@ InSprite
         sta COLUPF		; STore A -> COlor/LUminance PlayField
         			; set the background color
 ScanLoop5
-        lda #$ff		; **** Here ****
-	sta WSYNC
-        sta PF0
-        sta PF1
-        sta PF2
-        lda #0
-        sta GRP0
-        inx
-        cpx #192
-        bne ScanLoop5
+        lda #$ff		; LoaD $ff -> A (binary 1111 1111)
+	sta WSYNC		; Wait for next scanline
+        sta PF0			; STore PF0 -> A
+        sta PF1			; STore PF1 -> A
+        sta PF2			; STore PF2 -> A
+        lda #0			; LoaD 0 -> A
+        sta GRP0		; STore GRP0 (GRaphics butmap Player 0) -> A
+        inx			; INcrement X
+        cpx #192		; ComPare X <-> 192 - set Z if equal
+        bne ScanLoop5		; Branch if Z != 1 - repeat next scanline until finished
 
 ;-----------------------------------------------------------------
 ; Disable ball
-	lda #0
-        sta ENABL
+	lda #0			; LoaD 0 -> A
+        sta ENABL		; STore A -> ENABL - set ENAble BaLl to 0
 
 ;-----------------------------------------------------------------
 ; 30 lines of overscan needed, but we have lots of logic to do.
 ; So we're going to use the PIA timer to let us know when
 ; almost 30 lines of overscan have passed.
 ; This handy macro does a WSYNC and then sets up the timer.
-	TIMER_SETUP 30
+	TIMER_SETUP 30		; Timer for 30 lines
 
 ;-----------------------------------------------------------------
 ; Check for collisions
-        lda #%01000000
-	bit CXP0FB		; collision between player 0 and ball?
-        bne PlayerCollision
-        lda #%10000000
-        bit CXBLPF		; collision between playfield and ball?
-        bne PlayfieldCollision
-        beq NoCollision
+        lda #%01000000		; Load the bitmask -> A
+	bit CXP0FB		; test if BITs are set in target memory location
+        			; collision between player 0 and ball?
+        bne PlayerCollision	; Branch if Z != 1 (meaning logical AND - the bit was set)
+        lda #%10000000		; Load the bitmask -> A
+        bit CXBLPF		; test if BITs are set in target memory location
+        			; collision between playfield and ball?
+        bne PlayfieldCollision	; Branch if Z != 1 (meaning logical AND - the bit was set)
+        beq NoCollision		; Branch if Z = 1 (result of logical AND - bit was not set)
+        
 ;-----------------------------------------------------------------
 ; Now we bounce the ball depending on where it is
 PlayerCollision
 
 ;-----------------------------------------------------------------
 ; Is the button pressed? if so, just capture the ball
-	lda INPT4		;read button input
-	bmi ButtonNotPressed	;skip if button not pressed
+	lda INPT4		; read button input
+	bmi ButtonNotPressed	; skip if button not pressed
         inc captured		; set capture flag
         lda #SpriteHeight
         sta animofs		; use different bitmap when captured
