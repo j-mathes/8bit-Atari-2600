@@ -358,66 +358,67 @@ ballCaptured
 ;-----------------------------------------------------------------
 ; Joystick movement
 ; For up and down, we INC or DEC the Y Position
-	lda #%00010000		;Up?
-	bit SWCHA 
-	bne SkipMoveUp
-        ldx yplyr
-        cpx #129
-        bcc SkipMoveUp
-        dex
-        stx yplyr
-        lda captured		; captured? move the ball too
-        beq SkipMoveUp
-        dec yball
+	lda #%00010000		; LoaD bitmask -> A (***Up?)
+	bit SWCHA 		; BIt Test Target <-> A (logical AND between target and Accum)
+        			; and sets Z flag to 1 if the bits are equal
+	bne SkipMoveUp0		; Branch if Z flag is Not Equal to 1
+        ldx yplyr		; LoaD player 0 y pos -> X
+        cpx #129		; ComPare X -> #129 ("bottom" extent)
+        bcc SkipMoveUp0		; Branch if Carry Clear
+        dex			; DEcrement X
+        stx yplyr		; STore player 0 Y position -> X
+        lda captured		; captured? move the ball too - LoaD captured -> A
+        beq SkipMoveUp0		; Branch if EQual (if Z == 1) - set at bit above
+        dec yball		; DECrement the ball's y position
 
-SkipMoveUp
-	lda #%00100000		;Down?
-	bit SWCHA 
-	bne SkipMoveDown
-        ldx yplyr
-        cpx #185-SpriteHeight
-        bcs SkipMoveDown
-        inx
-        stx yplyr
-        lda captured		; captured? move the ball too
-        beq SkipMoveDown
-        inc yball
+SkipMoveUp0
+	lda #%00100000		; LoaD bitmask -> A (***Down?)
+	bit SWCHA 		; BIt Test Target <-> A (logical AND between target and Accum)
+	bne SkipMoveDown0	; Branch if Z flag is Not Equal to 1
+        ldx yplyr		; LoaD player 0 y position -> X
+        cpx #185-SpriteHeight	; ComPare X -> #185 ("top" extent)
+        bcs SkipMoveDown0	; Branch if Carry Set
+        inx			; INcrement X
+        stx yplyr		; STore X -> player 0 Y positoin
+        lda captured		; captured? move the ball too - LoaD captured -> A
+        beq SkipMoveDown0	; Branch if EQual (if Z == 1) - set at bit above
+        inc yball		; INCrement ball Y position
 
-SkipMoveDown
+SkipMoveDown0
 ;-----------------------------------------------------------------
 ; Note that the horizontal position is not contained in RAM,
 ; but inaccessibly inside the TIA's registers! Some games can
 ; get away with this if they use the collision registers.
 	ldx #0			; assume speed is 0 if no movement
-	lda #%01000000		;Left?
-	bit SWCHA
-	bne SkipMoveLeft
-	ldx #$10		;a 1 in the left nibble means go left
+	lda #%01000000		; LoaD bitmask -> A (Left?)
+	bit SWCHA		; BIt Test Target <-> A (logical AND between target and Accum)
+	bne SkipMoveLeft0	; Branch if Z flag is Not Equal to 1
+	ldx #$10		; a 1 in the left nibble means go left
 
-SkipMoveLeft
-	lda #%10000000		;Right?
-	bit SWCHA
-	bne SkipMoveRight
-	ldx #$F0		;a -1 in the left nibble means go right...
+SkipMoveLeft0
+	lda #%10000000		; LoaD bitmask -> A (Right?)
+	bit SWCHA		; BIt Test Target <-> A (logical AND between target and Accum)
+	bne SkipMoveRight0	; Branch if Z flag is Not Equal to 1
+	ldx #$F0		; a -1 in the left nibble means go right...
 
-SkipMoveRight
-	stx HMP0		; set the move for player 0
+SkipMoveRight0
+	stx HMP0		; set the move for player 0 - strobe
         lda captured		; captured? move the ball too
-        beq NoCaptureMove
-        stx HMBL		; set ball move register
+        beq NoCaptureMove0	; Branch if Z flag EQual to 1
+        stx HMBL		; set ball move register - strobe
 
-NoCaptureMove
-        sta WSYNC
-        sta HMOVE		; apply the move(s)
+NoCaptureMove0
+        sta WSYNC		; strobe WSYNC
+        sta HMOVE		; apply the move(s) - strobe
 
 ;-----------------------------------------------------------------
 ; Play audio from shadow register
-	ldx avol0
-        beq NoAudio
+	ldx avol0		; Load audio volume channel 0 shadow register -> X
+        beq NoAudio		; Branch if Z == 1 (set by beq NoCaptureMove0)
         dex			; decrement volume every frame
 	stx AUDV0		; store in volume hardware register
         stx avol0		; store in shadow register
-        lda #3
+        lda #3			; 
         sta AUDC0		; shift counter mode 3 for weird bounce sound
 
 NoAudio
@@ -455,7 +456,7 @@ DivideLoop
         asl
         sta RESP0,x		; fix coarse position
         sta HMP0,x		; set fine offset
-        sta WSYNC
+        sta WSYNC		; Wait for Sync
         sta HMOVE		; apply the previous fine position(s)
 	sta HMCLR		; reset the old horizontal position(s)
         rts			; return to caller 
