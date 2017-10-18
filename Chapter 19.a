@@ -264,96 +264,96 @@ PlayerCollision
 ;-----------------------------------------------------------------
 ; Is the button pressed? if so, just capture the ball
 	lda INPT4		; read button input
-	bmi ButtonNotPressed	; skip if button not pressed
+	bmi ButtonNotPressed	; skip if button not pressed - Branch if Minus 
         inc captured		; set capture flag
-        lda #SpriteHeight
+        lda #SpriteHeight	; LoaD SpriteHeight -> A
         sta animofs		; use different bitmap when captured
-        bne NoCollision
+        bne NoCollision		; Branch Not Equal (if Z != 1)
 ButtonNotPressed
 	lda #0
-	sta captured		; clear capture flag
-        sta animofs		; use regular bitmap
+	sta captured		; clear capture flag - STore A -> captured flag
+        sta animofs		; use regular bitmap (animation offset) - STore A -> offset
 
 ;-----------------------------------------------------------------
 ; See if we bounce off of top half or bottom half  of player
 ; (yplyr + height/2 - yball)
-	ldx #1
-	lda yplyr
-        clc
-        adc #SpriteHeight/2
-        sec
-        sbc yball
-        bmi StoreVel		; bottom half, bounce down
+	ldx #1			; LoaD 1 into X
+	lda yplyr		; LoaD player y position into A
+        clc			; CLear Carry flag
+        adc #SpriteHeight/2	; ADd with Carry half of the sprite height with A
+        sec			; SEt Carry flag to 1
+        sbc yball		; SuBtract wity Carry A - y position of ball
+        bmi StoreVel		; Branch if MInus - bottom half, bounce down
 	ldx #$ff		; top half, bounce up
-        bne StoreVel
+        bne StoreVel		; Branch Not Equal (if Z != 1)
         
 PlayfieldCollision
 ;-----------------------------------------------------------------
 ; If bouncing off top of playfield, bounce down
 	ldx #1
-	lda yball
-        bpl StoreVel
+	lda yball		; LoaD ball y position -> A
+        bpl StoreVel		; Branch if PLus (if minus flag not set)
 
 ;-----------------------------------------------------------------
 ; Otherwise bounce up
-	ldx #$ff
+	ldx #$ff		; LoaD $FF -> X
 
 StoreVel
 ;-----------------------------------------------------------------
 ; Store final velocity
-        stx yballvel
+        stx yballvel		; STore y ball velocity -> X
 
 ;-----------------------------------------------------------------
 ; Make a little sound
-	txa
-        adc #45
-	sta AUDF0		; frequency
-        lda #6
-        sta avol0		; shadow register for volume
+	txa			; Transfer X -> A
+        adc #45			; ADd with Carry A + 45
+	sta AUDF0		; frequency - STore A -> AUDF0 (Audio Frequency Channel 0)
+        lda #6			; Load 6 -> A
+        sta avol0		; shadow register for volume - STore A -> AVOL0 (Audio Volume Channel 0)
         
 NoCollision
 ;-----------------------------------------------------------------
 ; Clear collision registers for next frame
-	sta CXCLR
+	sta CXCLR		; STore A -> CXCLR (Clear collision latches - strobe)
         
 ;-----------------------------------------------------------------
 ; Ball captured? if so, no motion
-	lda captured
-        bne ballCaptured
+	lda captured		; LoaD captured flag -> A
+        bne ballCaptured	; Break Not Equal (Z != 1)
 
 ;-----------------------------------------------------------------
 ; Move ball vertically
-	lda yball
-        clc
-        adc yballvel
-        sta yball
+	lda yball		; LoaD ball y position -> A
+        clc			; CLear Carry flag
+        adc yballvel		; ADd with Carry ball y velocity + A
+        sta yball		; STore A -> ball Y position
 
 ;-----------------------------------------------------------------
 ; Move ball horizontally
 ; We use an fractional counter for the ball, and we have to
 ; set a different HMOVE value depending on if it's left or right
-        lda xballvel
-        bmi ballMoveLeft
-        clc
-        adc xballerr
-        sta xballerr
-        bcc ballCaptured
-        lda #$f0
-        sta HMBL
-        bne ballCaptured
+        lda xballvel		; LoaD the ball X velocity -> A	
+        bmi ballMoveLeft	; Branch if Minus flag set
+        clc			; CLear Carry flag
+        adc xballerr		; ADd with Carry A + ball X fractional error
+        sta xballerr		; STore A -> ball x fractional error
+        bcc ballCaptured	; Branch if Carry Clear
+        lda #$f0		; LoaD $F0 -> A
+        sta HMBL		; STore A -> Horizontal Motion BaLl
+        bne ballCaptured	; Branch Not Equal (Z != 1)
 
 ballMoveLeft
-	sec
-        sbc xballerr
-        sta xballerr
-        bcs ballCaptured
-        lda #$10
-        sta HMBL
+	sec			; SEt Carry flag
+        sbc xballerr		; SuBtract with Carry A - xballerr
+        sta xballerr		; STore A -> xballerr
+        bcs ballCaptured	; Branch if Carry Set
+        lda #$10		; LoaD $10 -> A
+        sta HMBL		; STore A -> horizontal ball motion
 
 ballCaptured
-        sta WSYNC
-        sta HMOVE		; apply the move(s)
-        sta HMCLR
+        sta WSYNC		; STore A -> WSYNC - strobe
+        sta HMOVE		; apply the move(s) - STore A -> Horizontal Move - strobe
+        sta HMCLR		; STore A -> HMCLR - Clear horzontal move registers - strobe
 
 ;-----------------------------------------------------------------
 ; Joystick movement
