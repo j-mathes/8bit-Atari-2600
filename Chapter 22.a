@@ -39,7 +39,10 @@ NextFrame
 ; Vertical Sync - 3 lines
 	VERTICAL_SYNC		; macro gives us 3 lines of VSYNC
 
+;-----------------------------------------------------------------
+; 37 lines of VBLANK
 	TIMER_SETUP 37
+        
         lda #64
         sta LoopCount	; scanline counter
         lda #$ff
@@ -48,23 +51,28 @@ NextFrame
         sta COLUP0	; show how players alternate
         lda #$12
         sta COLUP1	; by having different colors
-        lda #THREE_COPIES
-        sta NUSIZ0
-        sta NUSIZ1	; both players have 3 copies
-        sta WSYNC
-        SLEEP 20
-        sta RESP0	; position 1st player
-        sta RESP1	; ...and 2nd player
+        lda #THREE_COPIES	; loaded into NUSIZ#
+        sta NUSIZ0	; Number-Size Player/Missle 0
+        sta NUSIZ1	; Number-Size Player/Missle 1 - both players have 3 copies
+        sta WSYNC	; wait for horizontal scan to finish
+       
+;-----------------------------------------------------------------
+; Position player sprites       
+        SLEEP 20	; skip 60 pixels
+        sta RESP0	; position 1st player @ 69
+        sta RESP1	; ...and 2nd player @ 78
         lda #$10
-        sta HMP1	; 1 pixel to the left
-        sta WSYNC
+        sta HMP1	; 1 pixel to the left - Horizontal Motion Player 1
+        sta WSYNC	; wait for horizontal scan to finish
         sta HMOVE	; apply HMOVE
-        sta HMCLR
+        sta HMCLR	; clear horizontal movement register
         lda #1
-        sta VDELP0	; we need the VDEL registers
-        sta VDELP1	; so we can do our 4-store trick
-        TIMER_WAIT
+        sta VDELP0	; we need the VDEL registers - Vertical Delay Player 0
+        sta VDELP1	; so we can do our 4-store trick - Vertical Delay Player 1
+        TIMER_WAIT	; wait timer macro
 
+;-----------------------------------------------------------------
+; Draw 192 scanlines
 	TIMER_SETUP 192
 
 	SLEEP 40	; start near end of scanline
@@ -95,7 +103,7 @@ BigLoop
         TIMER_WAIT
         jmp NextFrame
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;-----------------------------------------------------------------
 ; Bitmap data, six columns
 
 	align $100	; ensure we start on a page boundary
@@ -136,7 +144,8 @@ Bitmap5
 	hex dc700000000000000000000080808000
 	hex 00000000000000000000000000000000
 
+;-----------------------------------------------------------------
 ; Epilogue
-	org $fffc
-        .word Start
-        .word Start
+        org $fffc		; start at $fffc
+        .word Start		; reset vector at $fffc
+        .word Start		; interrupt vector at $fffe (unused in VCS)
