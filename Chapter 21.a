@@ -1,8 +1,255 @@
+;-------------------------------------------------------------
+; Chapter 22 - Asynchronous Playfields: Bricks - Online
+;	
+; We've got collisions working, but now we'd like some more
+; interaction. We can make a little "breakout" style game
+; where the ball knocks out rows of bricks. We'll need to
+; draw several rows of bricks, any or all of which might be missing.
+;
+; We'll use a technique called "asychronous playfields".
+; Remember that the playfield is either symmetric (20 pixels
+; followed by the same 20 pixels reversed) or repeated (20 pixels
+; repeated twice). But if we change the playfield registers
+; *during* the scanline, we can make the second half a
+; different bitmap than the first half.
+;
+; We're going to move away from the HMPx/HMOVE method of
+; setting object position and use the SetHorizPos method, since
+; we really need to know the X position of both player and ball
+; at all times. The way the subroutine is written, this takes
+; two scanlines per object. But we do it during the overscan
+; period at the end of the frame, and we've got the cycles
+; to spare.
+;
+; Also, we're going to keep score and have a rudimentary
+; scoreboard, which makes this sort of an actual game!
+;
+; Fun fact: Messing with the HMOVE register causes a "comb"
+; effect on the left 8 pixels of the screen, which can be seen
+; at the bottom of the screen in the overscan region.
+;
+;-------------------------------------------------------------
+	
+        processor 6502
+        
+        include "vcs.h"
+        include "macro.h"
+        include "xmacro.h"	; timer macros
+        
+;-----------------------------------------------------------------        
+; Variables SEGment
+        seg.u Variables		; set Variables SEGment (uninitialized)
+	org $80			; start Variables at $80
 
-	SLEEP 44	; make sure we start near the end of scanline
-	ldy #$ff	; start with row = -1
+;-----------------------------------------------------------------        
+; Declare variables
+XPlyr		byte		; player x pos
+YPlyr		byte		; player y pos
+XBall		byte		; ball x pos
+YBall		byte		; ball y pos
+SpritePtr	word		; sprite pointer
+YSprOfs		byte		; temp sprite offset
+YBallVel	byte		; ball Y velocity
+XBallVel	byte		; ball X velocity
+XBallErr	byte		; ball X fractional error
+Captured	byte		; ball capture flag
+AVol0		byte		; shadow register for AVOL0
+Score		byte		; current BCD-encoded score
+Temp		byte		; temporary storage
+
+Bricks		ds 36		; Define Storage 36 bytes - brick bitmap (6x6 bytes)
+
+ScoreHeight	equ 20		; height of top scoreboard
+BrickYStart	equ 32		; starting Y coordinate of bricks
+BrickHeight	equ 16		; height of each brick in pixels
+NBrickRows	equ 6		; number of lines of bricks
+NBL		equ NBrickRows	; abbreviation for number of brick rows
+BytesPerRow	equ 6		; number of bytes for each row of bricks
+BricksPerRow	equ 40		; number of bricks in each row
+				; (two bytes have only 4 active pixels)
+
+;-----------------------------------------------------------------
+; Color constants
+BGCOLOR		equ #$80	; blue
+PLCOLOR		equ #$6c	; light pink
+GNDCOLOR	equ #$c0	; green
+
+
+;-----------------------------------------------------------------        
+; Enable ball if it is on this scanline (in X register)
+; Modifies A.
+	MAC DRAW_BALL		; create MACro DRAW_BALL
+	lda #%00000000		; LoaD byte -> A
+	cpx YBall		; ComPare X <-> yball - sets zero flag
+        bne .noball		; Branch Not Equal - branch if Z flag !- 1
+        lda #%00000010		; for ENAM0 (ENAble Missile 0) the 2nd bit is enabled
+.noball
+	sta ENABL		; STore A -> ENABL - enable ball
+        ENDM			; END Macro
+
+;-----------------------------------------------------------------        
+; Code SEGment
+	seg Code        	; set Code SEGment
+        org $f000		; start Code at $f000
+        
+;-----------------------------------------------------------------        
+; Initialize and set initial offsets of objects.
+Start	
+	CLEAN_START		; macro to safely clear memroy and TIA
+	lda #185-SpriteHeight	; LoaD (185 - SpriteHeight) -> A
+        sta YPlyr		; STore A -> yplyr - player Y position, top to bottom
+        
+;-----------------------------------------------------------------
+; Set player 0 horizontal position
+	lda #79
+        sta XPlyr		; STore A -> Player X Position
+        ldx #0
+        jsr SetHorizPos2	; Jump to SubRoutine
+        
+;-----------------------------------------------------------------
+; Set ball horizontal position
+	lda #0
+        sta XBall		; STore A -> Ball X Position
+        ldx #4
+        jsr SetHorizPos2	; Jump to SubRoutine
+        
+;-----------------------------------------------------------------
+; Set ball initial velocity
+	lda #1			; LoaD #1 -> A
+        sta YBallVel		; STore A -> ball's Y Velocity
+        lda #129
+        sta YBall		; STore A -> Ball Y Position
+        lda #$40
+        sta XBallVel		; STore A -> ball's X Velocity
+; Set up initial bricks
+	ldx #0
+        lda #$ff
+SetupBricks
+	;txa			; uncomment for a sparse brick pattern
+        sta Bricks,x		; STore A -> Bricks at index X
+        inx			; INcrement X
+        cpx #BytesPerRow*NBrickRows	; ComPare X <-> num bytes per row * num bricks per row
+        bne SetupBricks		; Branch Not Equal - branch if Z flag != 1
+
+;-----------------------------------------------------------------
+; Next frame loop
+NextFrame
+
+;-----------------------------------------------------------------        
+; Vertical Sync - 3 lines
+	VERTICAL_SYNC		; macro gives us 3 lines of VSYNC
+
+;-----------------------------------------------------------------
+; in case the ball is on screen
+        lda ColorFrame0		; load 1st entry of color data
+        sta COLUP0		; set sprite 0 color
+        
+;-----------------------------------------------------------------
+; Set up playfield
+        lda #BGCOLOR		; set the background color
+        sta COLUBK		; STore A -> COLUBK
+        lda #PLCOLOR		; set the playfield color
+        sta COLUPF		; STore A -> COLUPF
+        lda #%00010101		; playfield reflection and ball size/priority
+        sta CTRLPF		; STore A -> CTRLPF
+        lda #0			; blank out the playfield
+        sta PF0			; STore A -> PF0
+        sta PF1			; STore A -> PF1
+        sta PF2			; STore A -> PF2
+
+;-----------------------------------------------------------------
+; 37 lines of VBLANK
+	TIMER_SETUP 37
+
+;-----------------------------------------------------------------
+; Set up sprite pointer depending on button press
+	lda #<Frame0		; LoaD A with lo byte address 
+        sta SpritePtr		; STore A -> SpritePtr
+        lda #>Frame0		; LoaD A with hi byte address
+        sta SpritePtr+1		; normal sprite bitmap
+	lda INPT4		; read button input
+	bmi ButtonNotPressed2	; Branch if MInum - skip if button not pressed
+	lda #<Frame1		; LoaD A with lo byte address
+        sta SpritePtr		; STore A -> SpritePtr
+        lda #>Frame1		; LoaD A with hi byte address
+        sta SpritePtr+1		; alternate sprite bitmap
+ButtonNotPressed2
+	TIMER_WAIT		; Wait timer macro
+
+;-----------------------------------------------------------------
+; Draw 192 scanlines
+        ldx #0			; X will contain the frame Y coordinate
+
+; First, we'll draw the scoreboard.
+; Put the playfield into score mode (bit 2) which gives
+; two different colors for the left/right side of
+; the playfield (given by COLUP0 and COLUP1).
+        lda #%00010010		; score mode + 2 pixel ball
+        sta CTRLPF		; STore A -> ConTRoL Play Field
+        lda #$48		; salmon color
+        sta COLUP0		; set color for left
+        lda #$a8		; sky blue color
+        sta COLUP1		; set color for right
+
+;-----------------------------------------------------------------
+; We need to extract each digit of the BCD-coded score
+; (there are two digits, each 4 bits) and find the appropriate
+; entry in the DigitsBitmap bitmap table.
+; We'll just draw one digit to keep it simple.
+ScanLoop1a
+        clc			; clear carry flag
+; Digits are 5 pixels high, so we need to multiply each
+; digit by 5 to find our digit in the bitmap table.
+	lda Score		; grab the BCD score
+        and #$0F		; mask out the least significant digit
+        sta Temp
+        asl			; Arithmetic Shift Left
+        asl			; Arithmetic Shift Left
+        adc Temp		; ADd with Carry
+        sta Temp		; tmp = score * 5
+; Now we divide our current Y coordinate by 2
+; to get the index into the digit bitmap.
+	txa			; Transfer X -> A
+        ror			; ROtate Right - A = Ycoord / 2
+        adc Temp		; ADd with Carry - A += tmp
+        tay			; Transfer A -> Y
+        lda DigitsBitmap,y	; LoaD DigitsBitmap[offset] -> A
+        and #$0F		; logical AND - mask out the rightmost digit
+        sta WSYNC		; strobe WSYNC
+        sta PF1			; store digit to playfield 1 register
+        DRAW_BALL		; draw the ball on this line?
+        			; (only for collision purposes)
+        inx			; INcrement X
+        cpx #10			; digits are 5 pixels high * 2 lines per pixel
+        bcc ScanLoop1a		; Branch if Carry Clear
+; Clear the playfield
+        lda #0
+        sta PF1			; STore A -> Play Field 1
+; Turn playfield reflection off, since our brick field
+; will be drawn asymetrically (and turn score mode off)
+        lda #%00010100		; no reflection + ball priority + 2 pixel ball
+        sta CTRLPF		; STore A -> ConTRoL Play Field
+; Continue until the bricks start on line 32.
+ScanLoop1b
+	sta WSYNC		; wait for horizontal sync - next scanline
+        DRAW_BALL		; draw the ball on this line? - macro defined above
+        			; (only for collision purposes)
+        inx			; INcrement X
+        cpx #BrickYStart	; ComPare X <-> Y Starting position of brick
+        bne ScanLoop1b
+
+; Next we'll draw the brick field, which is asymmetrical.
+; We use two loops: the inner loop draws a row of bricks
+; and the outer loop sets up for the next row.
+; Timing is very important here! Note that we skip
+; drawing the ball if it falls on a line after we start a
+; new row. This will cause a little flicker but it is not
+; very noticable.
+
+	SLEEP 44		; make sure we start near the end of scanline
+	ldy #$ff		; start with row = -1
 ScanLoop3b
-        iny		; go to next brick row
+        iny			; go to next brick row
         lda #BrickHeight	; for the outer loop, we count
         sta Temp		; 'brickheight' scan lines for each row
         cpy #NBrickRows		; done drawing all brick rows?
@@ -13,12 +260,12 @@ ScanLoop3a
 ; We need the extra cycles.
         DRAW_BALL		; draw the ball on this line?
 ScanSkipSync
-	sta WSYNC
-        stx COLUPF	; change colors for bricks
+	sta WSYNC		; wait for next scanline
+        stx COLUPF		; change colors for bricks - STore X -> playfield color and luminance
 ; Load the first byte of bricks
 ; Bricks are stored in six contiguous arrays (row-major)
-	lda Bricks+NBL*0,y
-        sta PF0		; store first playfield byte
+	lda Bricks+NBL*0,y	; *** Here ***
+        sta PF0			; store first playfield byte
 ; Store the next two bytes
 	lda Bricks+NBL*1,y
         sta PF1
@@ -27,17 +274,17 @@ ScanSkipSync
 ; Here's the asymmetric part -- by this time the TIA clock
 ; is far enough that we can rewrite the same PF registers
 ; and display new data on the right side of the screen
-        inx		; good place for INX b/c of timing
-        nop		; yet more timing
+        inx			; good place for INX b/c of timing
+        nop			; yet more timing
 	lda Bricks+NBL*3,y
         sta PF0
 	lda Bricks+NBL*4,y
         sta PF1
 	lda Bricks+NBL*5,y
         sta PF2
-        dec Temp
-        beq ScanLoop3b	; all lines in current brick row done?
-        bne ScanLoop3a	; branch always taken
+        dec Temp	
+        beq ScanLoop3b		; all lines in current brick row done?
+        bne ScanLoop3a		; branch always taken
 ; Clear playfield from bricks loop
 DoneBrickDraw
 	SLEEP 6
@@ -83,12 +330,12 @@ InSprite
 ;-----------------------------------------------------------------
 ; 8 more pixels for bottom border, and then we'll just leave it
 ; on for the overscan region.
-        ldy #$c8	; set the playfield color
+        ldy #$c8		; set the playfield color
 ScanLoop5
-        dey		; make a nice gradient
+        dey			; make a nice gradient
 	lda #$ff
 	sta WSYNC
-        sty COLUPF	; set the playfield color
+        sty COLUPF		; set the playfield color
         sta PF0			; STore PF0 -> A
         sta PF1			; STore PF1 -> A
         sta PF2			; STore PF2 -> A
@@ -130,15 +377,15 @@ PlayerCollision
 ; Is the button pressed? if so, just capture the ball
 	lda INPT4		; read button input
 	bmi ButtonNotPressed	; skip if button not pressed - Branch if Minus 
-        inc captured		; set capture flag
+        inc Captured		; set capture flag
         bne NoCollision		; Branch Not Equal (if Z != 1)
 ButtonNotPressed
 	lda #0
-	sta captured		; clear capture flag - STore A -> captured flag
+	sta Captured		; clear capture flag - STore A -> Captured flag
 
 ;-----------------------------------------------------------------
 ; See if we bounce off of top half or bottom half  of player
-; (yplyr + height/2 - yball)
+; (YPlyr + height/2 - YBall)
 	ldx #1			; LoaD 1 into X
 	lda YPlyr		; LoaD player y position into A
         clc			; CLear Carry flag
@@ -159,10 +406,10 @@ PlayfieldCollision
         bmi CollisionNoBrick	; return -1 = no brick found
 ; Did we hit the top or the bottom of a brick?
 ; If top, bounce up, otherwise down
-	ldx #$ff	; ball velocity = up
+	ldx #$ff		; ball velocity = up
 	cmp #BrickHeight/2	; top half of brick?
         bcc BounceBallUp	; yofs < brickheight/2
-        ldx #1		; ball velocity = down
+        ldx #1			; ball velocity = down
 BounceBallUp
 ; Go to BCD mode and increment the score.
 ; This treats 'score' as two decimal digits,
@@ -203,8 +450,8 @@ NoCollision
 	sta CXCLR		; STore A -> CXCLR (Clear collision latches - strobe)
         
 ;-----------------------------------------------------------------
-; Ball captured? if so, no motion
-	lda Captured		; LoaD captured flag -> A
+; Ball Captured? if so, no motion
+	lda Captured		; LoaD Captured flag -> A
         bne DoneMovement
 
 ;-----------------------------------------------------------------
@@ -216,7 +463,7 @@ NoCollision
         ldx #1
         stx YBallVel
 NoBallHitTop
-        sta yball		; STore A -> ball Y position
+        sta YBall		; STore A -> ball Y position
 
 ;-----------------------------------------------------------------
 ; Move ball horizontally
@@ -227,20 +474,20 @@ NoBallHitTop
         clc			; CLear Carry flag
         adc XBallErr		; ADd with Carry A + ball X fractional error
         sta XBallErr		; STore A -> ball x fractional error
-        bcc DoneMovement ; no wrap around? done
-        inc XBall        ; XBall += 1
+        bcc DoneMovement	 ; no wrap around? done
+        inc XBall       	 ; XBall += 1
         lda XBall
-        cmp #160         ; moved off right side?
-        bcc DoneMovement ; no, done
+        cmp #160         	; moved off right side?
+        bcc DoneMovement	 ; no, done
         lda #0
-        sta XBall        ; wrap around to left
-        beq DoneMovement ; always taken
+        sta XBall       	 ; wrap around to left
+        beq DoneMovement	 ; always taken
 BallMoveLeft
 	clc
         adc XBallErr
         sta XBallErr
         bcs DoneMovement
-        dec XBall	; decrement xball
+        dec XBall		; decrement xball
         lda XBall
         cmp #160
         bcc DoneMovement
@@ -259,7 +506,7 @@ DoneMovement
         bcc SkipMoveUp0		; Branch if Carry Clear
         dex			; DEcrement X
         stx YPlyr		; STore player 0 Y position -> X
-        lda captured		; captured? move the ball too - LoaD captured -> A
+        lda Captured		; Captured? move the ball too - LoaD Captured -> A
         beq SkipMoveUp0		; Branch if EQual (if Z == 1) - set at bit above
         dec YPlyr
 SkipMoveUp0
@@ -271,7 +518,7 @@ SkipMoveUp0
         bcs SkipMoveDown0	; Branch if Carry Set
         inx			; INcrement X
         stx YPlyr		; STore X -> player 0 Y positoin
-        lda captured		; captured? move the ball too - LoaD captured -> A
+        lda Captured		; Captured? move the ball too - LoaD Captured -> A
         beq SkipMoveDown0	; Branch if EQual (if Z == 1) - set at bit above
         inc YBall
 SkipMoveDown0
@@ -286,21 +533,21 @@ SkipMoveDown0
         bit SWCHA
 	bvs SkipMoveLeft0	; V flag set?
         lda XPlyr
-        beq SkipMoveLeft0 ; don't allow move left of screen
+        beq SkipMoveLeft0 	; don't allow move left of screen
         dec XPlyr
         lda Captured
         beq SkipMoveLeft0
-        dec XBall	; if captured, also move the ball
+        dec XBall		; if captured, also move the ball
 SkipMoveLeft0
 	bit SWCHA
 	bmi SkipMoveRight0	; N flag set?
         lda XPlyr
         cmp #150
-        bcs SkipMoveRight0 ; don't allow move right of screen
+        bcs SkipMoveRight0 	; don't allow move right of screen
         inc XPlyr
         lda Captured
         beq SkipMoveRight0
-        inc XBall	; if captured, also move the ball
+        inc XBall		; if captured, also move the ball
 SkipMoveRight0
 ; Set ball position using SetHorizPos
 	lda XBall
@@ -352,14 +599,14 @@ DivideRowLoop
 ; Now that we have the line, get byte and bit offset for brick
 	clc
         adc #BrickHeight
-	pha	; save the remainder to return as result
+	pha			; save the remainder to return as result
 	txa
         clc
-        adc #3	; adjust because SetHorizPos is off by a few pixels
+        adc #3			; adjust because SetHorizPos is off by a few pixels
         lsr
-        lsr	; divide X coordinate by 4
-        tax	; transfer brick column to X
-        tya	; load brick row # in A
+        lsr			; divide X coordinate by 4
+        tax			; transfer brick column to X
+        tya			; load brick row # in A
         clc
         adc PFOfsTable,x	; add offset
         tay
@@ -369,12 +616,12 @@ DivideRowLoop
         cmp Bricks,y		; was there a change?
         beq NoBrickFound2	; no, so return -1 as result
         sta Bricks,y
-        pla		; return remainder as result
+        pla			; return remainder as result
         rts
 NoBrickFound2
-	pla		; pull the remainder, but ignore it
+	pla			; pull the remainder, but ignore it
 NoBrickFound
-	lda #$FF	; return -1 as result
+	lda #$FF		; return -1 as result
         rts
 
 ; SetHorizPos2 - Sets the horizontal position of an object.
