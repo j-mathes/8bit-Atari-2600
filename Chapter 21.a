@@ -415,14 +415,14 @@ BounceBallUp
 ; one in each nibble, for ADC and SBC operations.
         sed			; SEt Decimal flag = 1
         lda Score		; LoaD Score -> A
-        clc			; 
-        adc #1
-        sta Score
-        cld
-        jmp StoreVel
+        clc			; Clear Carry Flag
+        adc #1			; ADd with Carry A + 1
+        sta Score		; STore A -> Score
+        cld			; CLear Decimal flag
+        jmp StoreVel		; JuMP to StoreVel
 CollisionNoBrick
 ; If bouncing off top of playfield, bounce down
-	ldx #1
+	ldx #1			; Load 1 -> X
 	lda YBall		; LoaD ball y position -> A
         bpl StoreVel		; Branch if PLus (if minus flag not set)
 
@@ -451,16 +451,16 @@ NoCollision
 ;-----------------------------------------------------------------
 ; Ball Captured? if so, no motion
 	lda Captured		; LoaD Captured flag -> A
-        bne DoneMovement
+        bne DoneMovement	; Branch if Z flag Not Equal 1
 
 ;-----------------------------------------------------------------
 ; Move ball vertically
 	lda YBall		; LoaD ball y position -> A
         clc			; CLear Carry flag
         adc YBallVel		; ADd with Carry ball y velocity + A
-        bne NoBallHitTop
-        ldx #1
-        stx YBallVel
+        bne NoBallHitTop	; Branch if Z != 1
+        ldx #1			; LoaD 1 -> X
+        stx YBallVel		; STore X -> YBallVel - Ball moves up
 NoBallHitTop
         sta YBall		; STore A -> ball Y position
 
@@ -475,23 +475,23 @@ NoBallHitTop
         sta XBallErr		; STore A -> ball x fractional error
         bcc DoneMovement	; no wrap around? done
         inc XBall       	; XBall += 1
-        lda XBall
+        lda XBall		; LoaD X position of ball -> A
         cmp #160         	; moved off right side?
         bcc DoneMovement	; no, done
-        lda #0
+        lda #0			; LoaD 0 -> A
         sta XBall       	; wrap around to left
         beq DoneMovement	; always taken
 BallMoveLeft
-	clc
-        adc XBallErr
-        sta XBallErr
-        bcs DoneMovement
-        dec XBall		; decrement xball
-        lda XBall
-        cmp #160
-        bcc DoneMovement
-        lda #159
-        sta XBall
+	clc			; CLear Carry flag
+        adc XBallErr		; ADd with Carry A = A + XBallErr + C
+        sta XBallErr		; STore A -> XBallErr
+        bcs DoneMovement	; Branch if Carry Set
+        dec XBall		; DECrement xball
+        lda XBall		; LoaD XBall -> A
+        cmp #160		; CoMPare A <-> 160
+        bcc DoneMovement	; Branch if Carry Clear
+        lda #159		; LoaD 159 -> A
+        sta XBall		; STore A -> Ball X Position
 DoneMovement
 ;-----------------------------------------------------------------
 ; Joystick player movement
@@ -507,7 +507,7 @@ DoneMovement
         stx YPlyr		; STore player 0 Y position -> X
         lda Captured		; Captured? move the ball too - LoaD Captured -> A
         beq SkipMoveUp0		; Branch if EQual (if Z == 1) - set at bit above
-        dec YPlyr
+        dec YPlyr		; DECrement YPlyr
 SkipMoveUp0
 	lda #%00100000		; LoaD bitmask -> A (***Down?)
 	bit SWCHA 		; BIt Test Target <-> A (logical AND between target and Accum)
@@ -526,35 +526,36 @@ SkipMoveDown0
 ; but inaccessibly inside the TIA's registers! Some games can
 ; get away with this if they use the collision registers.
 	ldx #0			; assume speed is 0 if no movement
+        
 ; We'll test the left/right flags using a special feature of
 ; the BIT instruction, which sets the N and V flags to the
 ; 7th and 6th bit of the target.
-        bit SWCHA
-	bvs SkipMoveLeft0	; V flag set?
-        lda XPlyr
+        bit SWCHA		; BIT compare A with SWCHA
+	bvs SkipMoveLeft0	; Branch if oVerflow Set - V flag set?
+        lda XPlyr		; LoaD player X position -> A
         beq SkipMoveLeft0 	; don't allow move left of screen
-        dec XPlyr
-        lda Captured
-        beq SkipMoveLeft0
+        dec XPlyr		; DECrement player X position
+        lda Captured		; LoaD Captured flag -> A
+        beq SkipMoveLeft0	; Branch if Z == 1
         dec XBall		; if captured, also move the ball
 SkipMoveLeft0
-	bit SWCHA
+	bit SWCHA		; BIT compare A with SWCHA
 	bmi SkipMoveRight0	; N flag set?
-        lda XPlyr
-        cmp #150
+        lda XPlyr		; LoaD player X position -> A
+        cmp #150		; CoMPare A <-> 150
         bcs SkipMoveRight0 	; don't allow move right of screen
-        inc XPlyr
-        lda Captured
-        beq SkipMoveRight0
+        inc XPlyr		; INCrement player X Position
+        lda Captured		; LoaD Captured flag -> A
+        beq SkipMoveRight0	; Branch if Z == 1
         inc XBall		; if captured, also move the ball
 SkipMoveRight0
 ; Set ball position using SetHorizPos
 	lda XBall
-        ldx #4
+        ldx #4			; index identifying ball
         jsr SetHorizPos2
 ; Set player position using SetHorizPos
 	lda XPlyr
-        ldx #0
+        ldx #0			; index identifying player 1
         jsr SetHorizPos2
 
 ;-----------------------------------------------------------------
@@ -578,7 +579,6 @@ NoAudio
         jmp NextFrame
 
 ;-----------------------------------------------------------------
-
 ; Subroutine to try to break a brick at a given X-Y coordinate.
 ; X contains the X coordinate.
 ; A contains the Y coordinate.
@@ -586,43 +586,45 @@ NoAudio
 ; otherwise A = Y offset (0-brickheight-1) of brick hit.
 BreakBrick
         ldy #$ff
-        sec
+        sec			; SEt Carry flag to 1
         sbc #BrickYStart	; subtract top Y of brick field
 ; Divide by brick height
 DivideRowLoop
-	iny
-        sbc #BrickHeight
+	iny			; INcrement Y
+        sbc #BrickHeight	; SuBtract with Carry A-BrickHeight-(1-C)
 	bcs DivideRowLoop	; loop until < 0
-        cpy #NBrickRows
-        bcs NoBrickFound
+        cpy #NBrickRows		; ComPare Y <-> NBrickRows
+        bcs NoBrickFound	; Branch if Carry Set
+
 ; Now that we have the line, get byte and bit offset for brick
-	clc
-        adc #BrickHeight
-	pha			; save the remainder to return as result
-	txa
-        clc
+	clc			; CLear Carry
+        adc #BrickHeight	; ADd with Carry A + BrickHeight + Carry
+	pha			; PusH A - save the remainder to return as result
+	txa			; Transfer X -> A
+        clc			; CLear Carry
         adc #3			; adjust because SetHorizPos is off by a few pixels
-        lsr
-        lsr			; divide X coordinate by 4
-        tax			; transfer brick column to X
-        tya			; load brick row # in A
-        clc
-        adc PFOfsTable,x	; add offset
-        tay
-        lda PFMaskTable,x
-        eor #$ff
-        and Bricks,y
+        lsr			; Logical Shift A Right
+        lsr			; Logical Shift A Right - divide X coordinate by 4
+        tax			; Transfer A -> X - transfer brick column to X
+        tya			; Transfer Y -> A - load brick row # in A
+        clc			; CLear Carry
+        adc PFOfsTable,x	; ADd with Carry PlayField Offset Table at index X
+        tay			; Transfer A -> Y
+        lda PFMaskTable,x	; LoaD PlayField MasK Table at Index X -> A
+        eor #$ff		; Exclusive OR A with $FF
+        and Bricks,y		; AND A with Bricks at Y Index
         cmp Bricks,y		; was there a change?
         beq NoBrickFound2	; no, so return -1 as result
-        sta Bricks,y
-        pla			; return remainder as result
-        rts
+        sta Bricks,y		; STore Bricks at index Y
+        pla			; PuLl from stack -> A - return remainder as result
+        rts			; ReTurn from Subroutine
 NoBrickFound2
-	pla			; pull the remainder, but ignore it
+	pla			; PuLl from stack -> A - pull the remainder, but ignore it
 NoBrickFound
 	lda #$FF		; return -1 as result
-        rts
+        rts			; ReTurn from Subroutine
 
+;-----------------------------------------------------------------
 ; SetHorizPos2 - Sets the horizontal position of an object.
 ; The X register contains the index of the desired object:
 ;  X=0: player 0
@@ -636,15 +638,15 @@ NoBrickFound
 SetHorizPos2
         sec			; set carry flag
         sta WSYNC		; start a new line
-	sta HMCLR
+	sta HMCLR		; clear horizontal motion registers
 DivideLoop
 	sbc #15			; subtract 15
 	bcs DivideLoop		; branch until negative
 	eor #7			; calculate fine offset
-        asl
-        asl
-        asl
-        asl
+        asl			; shift left
+        asl			; shift left
+        asl			; shift left
+        asl			; shift left
         sta HMP0,x		; set fine offset
         sta RESP0,x		; fix coarse position
         sta WSYNC		; Wait for Sync
