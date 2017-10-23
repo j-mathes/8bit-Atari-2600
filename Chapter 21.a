@@ -264,41 +264,40 @@ ScanSkipSync
         stx COLUPF		; change colors for bricks - STore X -> playfield color and luminance
 ; Load the first byte of bricks
 ; Bricks are stored in six contiguous arrays (row-major)
-	lda Bricks+NBL*0,y	; *** Here ***
+	lda Bricks+NBL*0,y	; LoaD entry at Bricks array, index offset
         sta PF0			; store first playfield byte
-; Store the next two bytes
-	lda Bricks+NBL*1,y
-        sta PF1
-	lda Bricks+NBL*2,y
-        sta PF2
+	lda Bricks+NBL*1,y	; LoaD entry at Bricks array, index offset
+        sta PF1			; store second playfield byte
+	lda Bricks+NBL*2,y	; LoaD entry at Bricks array, index offset
+        sta PF2			; store third playfield byte
 ; Here's the asymmetric part -- by this time the TIA clock
 ; is far enough that we can rewrite the same PF registers
 ; and display new data on the right side of the screen
         inx			; good place for INX b/c of timing
         nop			; yet more timing
-	lda Bricks+NBL*3,y
-        sta PF0
-	lda Bricks+NBL*4,y
-        sta PF1
-	lda Bricks+NBL*5,y
-        sta PF2
-        dec Temp	
+	lda Bricks+NBL*3,y	; LoaD entry at Bricks array, index offset
+        sta PF0			; store first playfield byte
+	lda Bricks+NBL*4,y	; LoaD entry at Bricks array, index offset
+        sta PF1			; store second playfield byte
+	lda Bricks+NBL*5,y	; LoaD entry at Bricks array, index offset
+        sta PF2			; store third playfield byte
+        dec Temp		; DECrement Temp
         beq ScanLoop3b		; all lines in current brick row done?
         bne ScanLoop3a		; branch always taken
 ; Clear playfield from bricks loop
 DoneBrickDraw
-	SLEEP 6
-	lda #0
-        sta PF0
-        sta PF1
-        sta PF2
+	SLEEP 6			; SLEEP macro for 6 cycles
+	lda #0			; LoaD 0 -> A
+        sta PF0			; STore A -> PF0
+        sta PF1 		; STore A -> PF1
+        sta PF2 		; STore A -> PF2
 
 ;-----------------------------------------------------------------
 ; Draw bottom half of screen with player sprite.
 ; Setup 'ysprofs' which is the calculated offset into
 ; sprite lookup tables (it can exceed bounds, we'll test)
 ; Since the sprite table is reversed, the starting offset is
-; Yplyr - Ystart - SpriteHeight
+; YPlyr - YStart - SpriteHeight
 	lda YPlyr		; LoaD player y position -> A
         sec			; SEt Carry flag to 1
         sbc #128-SpriteHeight	; SuBtract with Carry A-(128-SpriteHeight)
@@ -334,11 +333,11 @@ InSprite
 ScanLoop5
         dey			; make a nice gradient
 	lda #$ff
-	sta WSYNC
+	sta WSYNC		; wait for horizontal sync
         sty COLUPF		; set the playfield color
-        sta PF0			; STore PF0 -> A
-        sta PF1			; STore PF1 -> A
-        sta PF2			; STore PF2 -> A
+        sta PF0			; STore A -> PF0
+        sta PF1			; STore A -> PF1
+        sta PF2			; STore A -> PF2
         lda #0			; LoaD 0 -> A
         sta GRP0		; STore GRP0 (GRaphics butmap Player 0) -> A
         inx			; INcrement X
@@ -400,9 +399,9 @@ PlayfieldCollision
 ;-----------------------------------------------------------------
 ; Which brick do we break?
 ; try the one nearest to us
-	lda YBall
-        ldx XBall
-        jsr BreakBrick
+	lda YBall		; LoaD ball Y position -> A
+        ldx XBall		; LoaD ball X position -> X
+        jsr BreakBrick		; Jump to SubRoutine
         bmi CollisionNoBrick	; return -1 = no brick found
 ; Did we hit the top or the bottom of a brick?
 ; If top, bounce up, otherwise down
@@ -414,9 +413,9 @@ BounceBallUp
 ; Go to BCD mode and increment the score.
 ; This treats 'score' as two decimal digits,
 ; one in each nibble, for ADC and SBC operations.
-        sed
-        lda Score
-        clc
+        sed			; SEt Decimal flag = 1
+        lda Score		; LoaD Score -> A
+        clc			; 
         adc #1
         sta Score
         cld
@@ -474,14 +473,14 @@ NoBallHitTop
         clc			; CLear Carry flag
         adc XBallErr		; ADd with Carry A + ball X fractional error
         sta XBallErr		; STore A -> ball x fractional error
-        bcc DoneMovement	 ; no wrap around? done
-        inc XBall       	 ; XBall += 1
+        bcc DoneMovement	; no wrap around? done
+        inc XBall       	; XBall += 1
         lda XBall
         cmp #160         	; moved off right side?
-        bcc DoneMovement	 ; no, done
+        bcc DoneMovement	; no, done
         lda #0
-        sta XBall       	 ; wrap around to left
-        beq DoneMovement	 ; always taken
+        sta XBall       	; wrap around to left
+        beq DoneMovement	; always taken
 BallMoveLeft
 	clc
         adc XBallErr
