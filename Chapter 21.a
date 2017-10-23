@@ -1,5 +1,5 @@
 ;-------------------------------------------------------------
-; Chapter 22 - Asynchronous Playfields: Bricks - Online
+; Chapter 21 - Asynchronous Playfields: Bricks - Online
 ;	
 ; We've got collisions working, but now we'd like some more
 ; interaction. We can make a little "breakout" style game
