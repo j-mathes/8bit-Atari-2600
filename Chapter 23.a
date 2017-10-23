@@ -52,28 +52,28 @@ NextFrame
 	VERTICAL_SYNC		; macro gives us 3 lines of VSYNC
 
 	TIMER_SETUP 37
-        lda #$18
-        sta COLUP0
-        lda #$28
-        sta COLUP1
-        lda #THREE_COPIES
+        lda #$18		; yellow
+        sta COLUP0		; color / luminance player 0
+        lda #$28		; orange
+        sta COLUP1		; color / luminance player 1
+        lda #THREE_COPIES	; set NUSIZ's to 3 copies
         sta NUSIZ0
         sta NUSIZ1
-        sta WSYNC
-        SLEEP 20
-        sta RESP0
-        sta RESP1
+        sta WSYNC		; wait for scanline to finish
+        SLEEP 20		; skip 60 pixels
+        sta RESP0		; reset player 0 @ 69
+        sta RESP1		; reset player 1 @ 78
         lda #$10
-        sta HMP1
-        sta WSYNC
-        sta HMOVE
-        sta HMCLR
+        sta HMP1		; horizontal move player 1 one pixel to the left
+        sta WSYNC		; wait for scanline
+        sta HMOVE		; apply HMOVE
+        sta HMCLR		; clear horizontal motion registers
         lda #1
-        sta VDELP0
-        sta VDELP1
-        TIMER_WAIT
+        sta VDELP0		; vertical delay player 0
+        sta VDELP1		; vertical delay player 1
+        TIMER_WAIT		; set wait timer
 
-	TIMER_SETUP 192
+	TIMER_SETUP 192		; 
 
 	lda #<String0
         sta StrPtr
