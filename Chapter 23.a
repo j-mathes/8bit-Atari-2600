@@ -143,45 +143,45 @@ BuildText subroutine
 ; Setup stack pointer so that successive PHA copy bytes
 ; to decreasing addresses, starting at WriteOfs.
         txa			; Transfer X -> A
-	ldx WriteOfs		;**********
-        txs
-        tax
+	ldx WriteOfs		; LoaD WriteOfs -> X
+        txs			; Transfer X -> Stack
+        tax			; Transfer A -> X
 ; Write the character to FontBuf, copying all 5 bytes.
 ; Because we are using PHA, we have essentially three
 ; registers to work with.
-	lda FontTableLo+4,y
-        ora FontTableHi+4,x
-        pha
+	lda FontTableLo+4,y	
+        ora FontTableHi+4,x	; inclusive OR A | memory - result bit is set if it's in either
+        pha			; push A -> Stack
 	lda FontTableLo+3,y
-        ora FontTableHi+3,x
-        pha
+        ora FontTableHi+3,x	; inclusive OR A | memory
+        pha			; push A -> Stack
 	lda FontTableLo+2,y
-        ora FontTableHi+2,x
-        pha
+        ora FontTableHi+2,x	; inclusive OR A | memory
+        pha			; push A -> Stack
 	lda FontTableLo+1,y
-        ora FontTableHi+1,x
-        pha
+        ora FontTableHi+1,x	; inclusive OR A | memory
+        pha			; push A -> Stack
 	lda FontTableLo+0,y
-        ora FontTableHi+0,x
-        pha
-; Go to next WriteOfs (skip 5 bytess)
+        ora FontTableHi+0,x	; inclusive OR A | memory
+        pha			; push A -> Stack
+; Go to next WriteOfs (skip 5 bytes)
         lda WriteOfs
-        clc
-        adc #5
+        clc			; CLear Carry
+        adc #5			; Add with Carry A + 5
         sta WriteOfs
 .NoIncOfs
 ; Repeat until we run out of characters.
 	ldy StrLen
-        cpy #12
+        cpy #12			; ComPare memory <-> Y
         bne .CharLoop
 ; Restore stack pointer.
         ldx TempSP
-        txs
-	rts
+        txs			; Transfer X -> Stack
+	rts			; ReTurn from Subroutine
 
 ; Display the resulting 48x5 bitmap from FontBuf
 DrawText subroutine
-	sta WSYNC
+	sta WSYNC		; Wait for scanline
 	SLEEP 40		; start near end of scanline
         lda #4
         sta LoopCount
@@ -211,8 +211,9 @@ BigLoop
         sta GRP1
         sta GRP0
         sta GRP1
-        rts
+        rts			; ReTurn from Subroutine
 
+;-----------------------------------------------------------------
 ; Unpacked font tables. Each character consists of 5 nibbles
 ; packed into 5 bytes. There's a table with the bitmap data in
 ; the low nibble, and one with the bitmap data in the high nibble.
