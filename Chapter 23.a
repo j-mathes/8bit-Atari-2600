@@ -73,19 +73,23 @@ NextFrame
         sta VDELP1		; vertical delay player 1
         TIMER_WAIT		; set wait timer
 
-	TIMER_SETUP 192		; 
+	TIMER_SETUP 192		
 
-	lda #<String0
-        sta StrPtr
-        lda #>String0
-        sta StrPtr+1
+;-----------------------------------------------------------------        
+; First string
+	lda #<String0		; Load A with lo byte address 
+        sta StrPtr		; STore A -> string pointer
+        lda #>String0		; Load A with hi byte address
+        sta StrPtr+1		; STore A -> string pointer + 1
         jsr BuildText		; build the 48x5 bitmap
         jsr DrawText		; draw the bitmap
 
-	lda #<String1
-        sta StrPtr
-        lda #>String1
-        sta StrPtr+1
+;-----------------------------------------------------------------        
+; Second string
+	lda #<String1		; Load A with lo byte address
+        sta StrPtr		; STore A -> string pointer
+        lda #>String1		; Load A with hi byte address
+        sta StrPtr+1		; STore A -> string pointer + 1
         jsr BuildText		; build the 48x5 bitmap
         jsr DrawText		; draw the bitmap
 
@@ -95,48 +99,51 @@ NextFrame
         TIMER_WAIT
         jmp NextFrame
 
+;-----------------------------------------------------------------        
 ; Create the 48x5 bitmap of a line of text, using
 ; 12 characters pointed to by StrPtr.
 ; The bitmap is stored in a 30-byte array starting at FontBuf.
 BuildText subroutine
         lda #$80
-        sta COLUBK
+        sta COLUBK		; Blue background color
 ; First, save the original stack pointer.
-	tsx
-        stx TempSP
+	tsx			; Transfer Stack pointer -> X
+        stx TempSP		; STore X -> TempSP
 ; Initialize WriteOfs (dest offset)
 ; and StrLen (source offset)
 	lda #FontBuf+4		; +4 because PHA goes in decreasing order
         sta WriteOfs		; offset into dest. array FontBuf
 	ldy #0
         sty StrLen		; start at first character
+
 .CharLoop
+;-----------------------------------------------------------------
 ; Get next pair of characters.
 ; Get first character
         lda (StrPtr),y		; load next character
-        sec
+        sec			; SEt Carry
         sbc #LoChar		; subtract 32 (1st char is Space)
 	sta Temp
         asl
         asl
         adc Temp		; multiply by 5
-        tax			; first character offset -> X
+        tax			; TRansfer first character offset (A) -> X
 ; Get second character
         iny
         lda (StrPtr),y		; load next character
-        sec
+        sec			; SEt Carry
         sbc #LoChar		; subtract 32 (1st char is Space)
 	sta Temp
         asl
         asl
         adc Temp		; multiply by 5
         iny
-        sty StrLen		; StrLen += 2
-        tay			; second character offset -> Y
+        sty StrLen		; STore Y -> StrLen += 2
+        tay			; Transfer second character offset (A) -> Y
 ; Setup stack pointer so that successive PHA copy bytes
 ; to decreasing addresses, starting at WriteOfs.
-        txa
-	ldx WriteOfs
+        txa			; Transfer X -> A
+	ldx WriteOfs		;**********
         txs
         tax
 ; Write the character to FontBuf, copying all 5 bytes.
