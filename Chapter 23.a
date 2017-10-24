@@ -142,10 +142,10 @@ BuildText subroutine
         tay			; Transfer second character offset (A) -> Y
 ; Setup stack pointer so that successive PHA copy bytes
 ; to decreasing addresses, starting at WriteOfs.
-        txa			; Transfer X -> A
-	ldx WriteOfs		; LoaD WriteOfs -> X
+        txa			; Transfer X -> A - preserve old X
+	ldx WriteOfs		; LoaD WriteOfs -> X - load X with offset
         txs			; Transfer X -> Stack
-        tax			; Transfer A -> X
+        tax			; Transfer A -> X - restore old X
 ; Write the character to FontBuf, copying all 5 bytes.
 ; Because we are using PHA, we have essentially three
 ; registers to work with.
@@ -204,7 +204,7 @@ BigLoop
         sty GRP1		; B5 -> [GRP1]; B4 -> GRP0
         sta GRP0		; ?? -> [GRP0]; B5 -> GRP1
         dec LoopCount		; go to next line
-	bpl BigLoop		; repeat until < 0
+	bpl BigLoop		; repeat until < 0 - Branch if Positive
         
         lda #0			; clear the sprite registers
         sta GRP0
