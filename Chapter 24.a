@@ -81,9 +81,11 @@ NextFrame
         TIMER_WAIT
 
 	TIMER_SETUP 30
-        lda #1
-        ldx #0
-        ldy #0
+;-----------------------------------------------------------------
+; The amount the score counter will increase by
+        lda #1			; 1's
+        ldx #0			; 100's
+        ldy #0			; 10 000's
         jsr AddScore
         TIMER_WAIT
         jmp NextFrame
@@ -94,7 +96,7 @@ NextFrame
 ; X = 2nd BCD digit
 ; Y = 3rd BCD digit
 AddScore subroutine
-        sed			; enter BCD mode
+        sed			; SEt Decimal mode flag - enter BCD mode
         clc			; clear carry
         sta Temp
         lda BCDScore
@@ -108,8 +110,8 @@ AddScore subroutine
         lda BCDScore+2
         adc Temp
         sta BCDScore+2
-        cld			; exit BCD mode
-        rts
+        cld			; CLear Decimal mode flag - exit BCD mode
+        rts			; ReTurn from Subroutine
 
 GetDigitPtrs subroutine
 	ldx #0			; leftmost bitmap
