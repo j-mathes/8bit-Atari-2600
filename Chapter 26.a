@@ -16,19 +16,20 @@
 ;-----------------------------------------------------------------        
 ; Declare variables
 
-CurRow		equ $8f		; decimal 143
-NumRows		equ 5
-EnemyRows0	equ $80		; decimal 128
-EnemyYpos0	equ $85		; decimal 133
-EnemyXofs0	equ $8a		; decimal 138
+CurRow		equ $8f		; current row counter
+				; $8f is the memory locationof variable
+NumRows		equ 5		; number of rows
+EnemyRows0	equ $80		;
+EnemyYpos0	equ $85		;
+EnemyXofs0	equ $8a		;
 
-Temp		equ $90		; decimal 144
-MissileY0	equ $91		; decimal 145
-MissileY1	equ $92		; decimal 146
-MissileX0	equ $93		; decimal 147
-BaseX		equ $94		; decimal 148
+Temp		equ $90		; temp
+MissileY0	equ $91		; player missile
+MissileY1	equ $92		; alien missile
+MissileX0	equ $93		; player missile
+BaseX		equ $94		; base x position
 
-ZPRoutine	equ $a0		; decimal 160
+ZPRoutine	equ $a0		;
 ZPWrites	equ ZPRoutine+(KernelStores-KernelStart)
 
 ;-----------------------------------------------------------------        
@@ -113,7 +114,7 @@ NextFrame
 ;-----------------------------------------------------------------        
 ; Draw all lines of the enemy formation.
 DrawEnemyFormation
-        lda #4
+        lda #4			; number of rows (0 = one row, 1 = 2 rows)
         sta CurRow
 ;-----------------------------------------------------------------        
 ; We're going to use the timer to wait for the
@@ -129,8 +130,8 @@ WaitForRow
 ; We've reached the right scanline, so we'll
 ; set up the NUSIZ registers and clear collisions.
         lda #1			; two copies, close for NUSIZ
-        sta NUSIZ0
-        sta NUSIZ1
+        sta NUSIZ0		; NUmber SIZe player / missile 0
+        sta NUSIZ1		; NUmber SIZe player / missile 1
         sta CXCLR		; clear collisions
 ;-----------------------------------------------------------------        
 ; WSYNC and draw the row of sprites.
@@ -224,18 +225,18 @@ KernelLoop
         sta GRP1		; GRaphics bitmap Player 1
         stx COLUP0		; COlor / Luminance Player 0
         stx COLUP1		; COlor / Luminance Player 1
-        ldx #0			; so we can do the STA RESPn,x variant
+        ldx #0			; so we can do the STA RESPn,x variant - the value #0 doesn't matter
 KernelStores
 ;-----------------------------------------------------------------        
 ; These STAs are meant to be modified
-        sta RESP0,x
-        sta RESP1,x
-        sta RESP0,x
-        sta RESP1,x
-        sta RESP0,x
-        sta RESP1,x
-        sta RESP0,x
-        sta RESP1,x
+        sta RESP0,x		; strobe RESet Player 0
+        sta RESP1,x		; strobe RESet Player 1
+        sta RESP0,x		; strobe RESet Player 0
+        sta RESP1,x		; strobe RESet Player 1
+        sta RESP0,x		; strobe RESet Player 0
+        sta RESP1,x		; strobe RESet Player 1
+        sta RESP0,x		; strobe RESet Player 0
+        sta RESP1,x		; strobe RESet Player 1
 ;-----------------------------------------------------------------        
 ; End of modifiable section
         dey			; also acts as 2-cycle delay
