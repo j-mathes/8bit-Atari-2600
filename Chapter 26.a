@@ -16,19 +16,19 @@
 ;-----------------------------------------------------------------        
 ; Declare variables
 
-CurRow		equ $8f
+CurRow		equ $8f		; decimal 143
 NumRows		equ 5
-EnemyRows0	equ $80
-EnemyYpos0	equ $85
-EnemyXofs0	equ $8a
+EnemyRows0	equ $80		; decimal 128
+EnemyYpos0	equ $85		; decimal 133
+EnemyXofs0	equ $8a		; decimal 138
 
-Temp		equ $90
-MissileY0	equ $91
-MissileY1	equ $92
-MissileX0	equ $93
-BaseX		equ $94
+Temp		equ $90		; decimal 144
+MissileY0	equ $91		; decimal 145
+MissileY1	equ $92		; decimal 146
+MissileX0	equ $93		; decimal 147
+BaseX		equ $94		; decimal 148
 
-ZPRoutine	equ $a0
+ZPRoutine	equ $a0		; decimal 160
 ZPWrites	equ ZPRoutine+(KernelStores-KernelStart)
 
 ;-----------------------------------------------------------------        
@@ -46,22 +46,22 @@ CopyRoutineLoop
         bpl CopyRoutineLoop
 ;-----------------------------------------------------------------        
 ; Set up interlocuters
-        lda #$ff
-        sta EnemyRows0+4
-        sta EnemyRows0+3
-        sta EnemyRows0+2
-        sta EnemyRows0+1
-        sta EnemyRows0+0
-        lda #190
-        sta EnemyYpos0+4
-        lda #170
-        sta EnemyYpos0+3
-        lda #150
-        sta EnemyYpos0+2
-        lda #130
-        sta EnemyYpos0+1
-        lda #110
-        sta EnemyYpos0+0
+        lda #$ff		; decimal 255
+        sta EnemyRows0+4	; store 255 into EnemyRows0 + offset
+        sta EnemyRows0+3	; store 255 into EnemyRows0 + offset
+        sta EnemyRows0+2	; store 255 into EnemyRows0 + offset
+        sta EnemyRows0+1	; store 255 into EnemyRows0 + offset
+        sta EnemyRows0+0	; store 255 into EnemyRows0 + offset
+        lda #190		; row vertical position
+        sta EnemyYpos0+4	; store into EnemyYpos0 + offset
+        lda #170		; row vertical position
+        sta EnemyYpos0+3	; store into EnemyYpos0 + offset
+        lda #150		; row vertical position
+        sta EnemyYpos0+2	; store into EnemyYpos0 + offset
+        lda #130		; row vertical position
+        sta EnemyYpos0+1	; store into EnemyYpos0 + offset
+        lda #110		; row vertical position
+        sta EnemyYpos0+0	; store into EnemyYpos0 + offset
         lda #40
         sta MissileY0
         lda #50
@@ -220,10 +220,10 @@ KernelLoop
 	lda EnemyFrame0,y	; load bitmap
 	sta WSYNC
         ldx EnemyColorFrame0,y	; load color
-        sta GRP0
-        sta GRP1
-        stx COLUP0
-        stx COLUP1
+        sta GRP0		; GRaphics bitmap Player 0
+        sta GRP1		; GRaphics bitmap Player 1
+        stx COLUP0		; COlor / Luminance Player 0
+        stx COLUP1		; COlor / Luminance Player 1
         ldx #0			; so we can do the STA RESPn,x variant
 KernelStores
 ;-----------------------------------------------------------------        
@@ -373,20 +373,20 @@ DivideLoop
 ; Make sure the bitmap tables used by the Grid Kernel
 ; do not cross page boundaries, because if so the CPU will
 ; add an extra cycle and mess up our timing!
-	org $ff00
+	org $ff00		; start at $ff00
 
 ;-----------------------------------------------------------------        
-; Enemy cat-head graphics data
+; Enemy graphics bitmap data
 EnemyFrame0
 	.byte #0
-        .byte #%00111100;$AE
-        .byte #%01000010;$AE
-        .byte #%11100111;$AE
-        .byte #%11111111;$AC
-        .byte #%10011001;$8E
+        .byte #%01100110;$AE
+        .byte #%00100100;$AE
+        .byte #%10111101;$AE
+        .byte #%10111101;$AC
+        .byte #%11011011;$8E
         .byte #%01111110;$8E
-        .byte #%11000011;$98
-        .byte #%10000001;$98
+        .byte #%00100100;$98
+        .byte #%01000010;$98
 EnemyColorFrame0
 	.byte #8		; height
         .byte #$AE;
@@ -399,31 +399,31 @@ EnemyColorFrame0
         .byte #$94;
 
 ;-----------------------------------------------------------------        
-; Player graphics data, such bitmap
+; Player graphics bitmap data
 Frame0
 	.byte #0
         .byte #%11111111;$0E
         .byte #%11111111;$0E
-        .byte #%11101111;$0E
-        .byte #%10010111;$0E
-        .byte #%10011111;$FE
+        .byte #%11111111;$0E
+        .byte #%11111111;$0E
         .byte #%11111111;$FE
-        .byte #%11010111;$FE
+        .byte #%11111111;$FE
+        .byte #%11111111;$FE
         .byte #%01111110;$FA
-        .byte #%00111110;$FA
-        .byte #%01000001;$FA
+        .byte #%00011000;$FA
+        .byte #%00011000;$FA
 ColorFrame0
 	.byte #10		; height
-        .byte #$0E;
-        .byte #$0E;
-        .byte #$0E;
-        .byte #$0E;
-        .byte #$FE;
-        .byte #$FE;
-        .byte #$FE;
-        .byte #$FA;
-        .byte #$FA;
-        .byte #$FA;
+        .byte #$ca;
+        .byte #$ca;
+        .byte #$ca;
+        .byte #$ca;
+        .byte #$ca;
+        .byte #$ca;
+        .byte #$ca;
+        .byte #$cA;
+        .byte #$cA;
+        .byte #$cA;
 
 PowersOf2
 	.byte #$1,#$2,#$4,#$8,#$10,#$20,#$40,#$80
