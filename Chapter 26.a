@@ -160,22 +160,24 @@ DivideBy12
 ;-----------------------------------------------------------------        
 ; Now we lookup the bitmask to use, and erase the
 ; bit that corresponds to the enemy.
-        tax			; Transfer A -> X
-        lda PowersOf2,x
-        eor #$ff
-        ldx CurRow
-        and EnemyRows0,x
-        sta EnemyRows0,x
+        tax			; Transfer A -> X - X holds index of collision
+        lda PowersOf2,x		; LoaD value Powersof2 at index X -> A
+        eor #$ff		; Exclusive OR A <-> (1111 1111)
+        			; where A had a 1 there will now be a 0
+        ldx CurRow		; LoaD Current Row -> X
+        and EnemyRows0,x	; logical AND A <-> EnemyRows0 at index X 
+        			; if var and A have the same bit, then result has bit
+        sta EnemyRows0,x	; STore A -> var
 ;-----------------------------------------------------------------        
 ; Now we destroy the missile too.
         lda #0
-        sta MissileY0
+        sta MissileY0		; STore 0 in Missile 0 Y coord
 NoCollision
-        dec CurRow
-        bpl WaitForRow
+        dec CurRow		; DECrement CurRow
+        bpl WaitForRow		; Branch if Positive
         lda #0			; turn off two-copy mode
-        sta NUSIZ0
-        sta NUSIZ1
+        sta NUSIZ0		; STore 0 -> var
+        sta NUSIZ1		; STore 0 -> var
         rts
 
 ;-----------------------------------------------------------------        
