@@ -29,7 +29,7 @@ MissileY1	equ $92		; alien missile
 MissileX0	equ $93		; player missile
 BaseX		equ $94		; base x position
 
-ZPRoutine	equ $a0		;
+ZPRoutine	equ $a0		; addressof ZP Routine
 ZPWrites	equ ZPRoutine+(KernelStores-KernelStart)
 
 ;-----------------------------------------------------------------        
@@ -39,20 +39,21 @@ Start
 
 ;-----------------------------------------------------------------        
 ; Copy Grid Kernel routine into RAM so we can modify it.
-	ldx #KernelEnd-KernelStart-1
+	ldx #KernelEnd-KernelStart-1	; LoaD address of KernelEnd minus
+        				; KernelStart - 1 -> X
 CopyRoutineLoop
-	lda KernelStart,x
-        sta ZPRoutine,x
-        dex
-        bpl CopyRoutineLoop
+	lda KernelStart,x	; LoaD address of KernelStart, offset X -> A
+        sta ZPRoutine,x		; STore address into ZPRoutine, offset X
+        dex			; DEcrement X
+        bpl CopyRoutineLoop	; Branch if Positive
 ;-----------------------------------------------------------------        
 ; Set up interlocuters
-        lda #$ff		; decimal 255
-        sta EnemyRows0+4	; store 255 into EnemyRows0 + offset
-        sta EnemyRows0+3	; store 255 into EnemyRows0 + offset
-        sta EnemyRows0+2	; store 255 into EnemyRows0 + offset
-        sta EnemyRows0+1	; store 255 into EnemyRows0 + offset
-        sta EnemyRows0+0	; store 255 into EnemyRows0 + offset
+        lda #$ff		; address $FF LoaD -> A
+        sta EnemyRows0+4	; store $FF into EnemyRows0 + offset
+        sta EnemyRows0+3	; store $FF into EnemyRows0 + offset
+        sta EnemyRows0+2	; store $FF into EnemyRows0 + offset
+        sta EnemyRows0+1	; store $FF into EnemyRows0 + offset
+        sta EnemyRows0+0	; store $FF into EnemyRows0 + offset
         lda #190		; row vertical position
         sta EnemyYpos0+4	; store into EnemyYpos0 + offset
         lda #170		; row vertical position
@@ -64,11 +65,11 @@ CopyRoutineLoop
         lda #110		; row vertical position
         sta EnemyYpos0+0	; store into EnemyYpos0 + offset
         lda #40
-        sta MissileY0
+        sta MissileY0		; MissileY0 starting at 40
         lda #50
-        sta MissileY1
+        sta MissileY1		; MissileY1 starting at 50
         lda #65
-        sta BaseX
+        sta BaseX		; Player's X starting at 65
         lda #$df
         sta COLUPF		; use the ball for the player's missile
 ;-----------------------------------------------------------------        
@@ -139,27 +140,27 @@ WaitForRow
         jsr DrawFormation
 ;-----------------------------------------------------------------        
 ; See if any of the player objects collided with ball.
-        lda CXP0FB
-        ora CXP1FB
-        and #$c0
-        beq NoCollision
+        lda CXP0FB		; Collision between P0 and Field/Ball -> A (1000 0000)
+        ora CXP1FB		; logical or Collision between P1 and Field/Ball <-> A (0100 0000)
+        and #$c0		; logical and binary 11000000 <-> A - set Zero fl
+        beq NoCollision		; Branch if EQual to Zero (no collisions)
 ;-----------------------------------------------------------------        
 ; We've got a collision, now we need to see where it is.
 ; Our grid spacing is 12 pixels, so we need to divide by 12.
 ; We'll have to account for the X offset of the sprites, too.
-	lda MissileX0
-        ldx #$ff
-        sec
-        sbc #13
+	lda MissileX0		; X position of Missile 0
+        ldx #$ff		; X Register = (1111 1111)
+        sec			; SEt Carry flag = 1
+        sbc #13			; SuBtract with Carry A - 13
 DivideBy12
-	inx
-        sbc #12
-        bcs DivideBy12
-        txa
+	inx			; INcrement X
+        sbc #12			; SuBtract with Carry A - 12
+        bcs DivideBy12		; Branch if Carry Set
+        txa			; Transfer X -> A
 ;-----------------------------------------------------------------        
 ; Now we lookup the bitmask to use, and erase the
 ; bit that corresponds to the enemy.
-        tax
+        tax			; Transfer A -> X
         lda PowersOf2,x
         eor #$ff
         ldx CurRow
