@@ -304,7 +304,7 @@ DrawBaseLoop
 
 ;-----------------------------------------------------------------        
 ; Move missiles
-; Missile 0 moves up, missile 1 moves down.
+; Missile 0 (player) moves up, missile 1 (alien) moves down.
 MoveMissiles
 	lda MissileY0
         beq NoMoveMiss0
@@ -319,7 +319,7 @@ NoMoveMiss1
 ;-----------------------------------------------------------------        
 ; Move player and shoot missiles with joystick/button
 ReadControls
-	ldx BaseX
+	ldx BaseX		; player X position
 	bit SWCHA		; read joystick
         bvs NoMoveLeft		; bit 7 set?
         lda #%0
@@ -339,11 +339,11 @@ NoStoreX
 ; Shoot a missile when fire button pressed
 	bit INPT4		; read button
         bmi NoFireButton 	; bit 7 set?
-        lda #10
+        lda #10			; add this amount to the player's Y position for missile's starting Y
         sta MissileY0		; reset missile
         lda BaseX
         clc
-        adc #6
+        adc #5			; add this amount to the player's X position for missile X position
         sta MissileX0
         ldx #4
         jsr SetHorizPos		; set ball X pos to player's X
