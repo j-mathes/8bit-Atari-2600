@@ -88,15 +88,15 @@ NextFrame
 ;-----------------------------------------------------------------        
 ; VBLANK
 	TIMER_SETUP 37
-        jsr ReadControls
-        jsr MoveMissiles
+        jsr ReadControls	; during top vblank, read controls
+        jsr MoveMissiles	; and move the missiles
         TIMER_WAIT
 ;-----------------------------------------------------------------        
 ; Main frame
 	TIMER_SETUP 192
-        jsr DrawEnemyFormation
-        jsr DrawBelowFormation
-        jsr DrawPlayerBase
+        jsr DrawEnemyFormation	; during the main frame, draw enemies
+        jsr DrawBelowFormation	; draw below enemies
+        jsr DrawPlayerBase	; draw player
         lda #$10
         sta COLUBK		; set ground color, just in time!
         lda #0
@@ -123,10 +123,10 @@ DrawEnemyFormation
 ; We'll draw any missiles while we're waiting.
 WaitForRow
 	jsr DrawMissiles
-        ldx CurRow
-        lda EnemyYpos0,x
-        cmp INTIM
-        bcc WaitForRow
+        ldx CurRow		; LoaD Current Row -> X
+        lda EnemyYpos0,x	; LoaD Enemy Y position 0 -> A
+        cmp INTIM		; Compare enemy Y position with timer
+        bcc WaitForRow		; loop if not at the next row so we can draw missiles
 ;-----------------------------------------------------------------        
 ; We've reached the right scanline, so we'll
 ; set up the NUSIZ registers and clear collisions.
@@ -137,7 +137,7 @@ WaitForRow
 ;-----------------------------------------------------------------        
 ; WSYNC and draw the row of sprites.
         sta WSYNC
-        jsr DrawFormation
+        jsr DrawFormation	; Draw our enemy formation
 ;-----------------------------------------------------------------        
 ; See if any of the player objects collided with ball.
         lda CXP0FB		; Collision between P0 and Field/Ball -> A (1000 0000)
@@ -185,28 +185,28 @@ NoCollision
 ; First we'll modify the routine in RAM,
 ; then we'll transfer control to it.
 DrawFormation
-        ldx CurRow
-        lda EnemyRows0,x
+        ldx CurRow		; LoaD the current row -> X
+        lda EnemyRows0,x	; LoaD Enemy Rows at x -> A
         ldx #1			; start at KernelStores+1
 ShiftLoop
-        ldy #RESP0
-        ror
-        bcs NoClearEnemy0
+        ldy #RESP0		; LoaD contents of memory at location Reset Player 0 -> Y
+        ror			; ROtate Right
+        bcs NoClearEnemy0	; Branch if Carry Set
         ldy #$30		; no-op
 NoClearEnemy0
-        sty ZPWrites,x
+        sty ZPWrites,x		; STore memory at ZPWrites, offset X -> Y
         inx
         inx
-        ldy #RESP1
-        ror
-        bcs NoClearEnemy1
+        ldy #RESP1		; LoaD Reset Player 1 -> Y
+        ror			; ROtate Right
+        bcs NoClearEnemy1	; Branch if Carry Set
         ldy #$30		; no-op
 NoClearEnemy1
-        sty ZPWrites,x
+        sty ZPWrites,x		; STore memory at ZPWrites, offset X -> Y
         inx
         inx
         cpx #16			; 8*2 bytes
-        bcc ShiftLoop
+        bcc ShiftLoop		; Branch if Carry Clear
 ;-----------------------------------------------------------------        
 ; Now we jump to our newly-modified kernel in RAM
 ; to draw the row of sprites.
@@ -222,7 +222,7 @@ NoClearEnemy1
 KernelStart
 KernelLoop
 	lda EnemyFrame0,y	; load bitmap
-	sta WSYNC
+	sta WSYNC		; Wait for horizontal SYNC
         ldx EnemyColorFrame0,y	; load color
         sta GRP0		; GRaphics bitmap Player 0
         sta GRP1		; GRaphics bitmap Player 1
@@ -259,9 +259,9 @@ DrawBelowFormation
         sta COLUP0
         sta COLUP1
         jsr DrawMissiles
-	lda INTIM
-        cmp #17			; are we close to the bottom?
-        bcs DrawBelowFormation
+	lda INTIM		; LoaD internal timer output -> A
+        cmp #17			; CoMPare to 17 - are we close to the bottom?
+        bcs DrawBelowFormation	; Branch if Carry Set
         sta WSYNC		; exit in a known state
 	rts
 
@@ -272,16 +272,16 @@ DrawBelowFormation
 ; the CMP operation.
 DrawMissiles
 	lda INTIM		; load timer value
-        pha
-        sec
-        sbc MissileY0
+        pha			; PusH Accumulator to stack
+        sec			; Set Carry flag
+        sbc MissileY0		; Subtract with Carry A - Missile 0 Y pos
         cmp #8			; within 8 lines of missile?
         lda #3			; bit 1 now set
         adc #0			; if carry set, bit 1 cleared
         sta ENABL		; enable/disable ball
-	pla
-        sec
-        sbc MissileY1
+	pla			; PuLl from stack to Accumulator
+        sec			; SEt Carry flag
+        sbc MissileY1		; SuBtract with Carry A - Missile 1 Y pos
         cmp #8			; within 8 lines of missile?
         lda #3			; bit 1 now set
         adc #0			; if carry set, bit 1 cleared
@@ -291,17 +291,17 @@ DrawMissiles
 ;-----------------------------------------------------------------        
 ; Draw the player's base
 DrawPlayerBase
-	lda BaseX
+	lda BaseX		; LoaD player X pos -> A
         ldx #0
         jsr SetHorizPos		; first set the horizontal position
 	ldy ColorFrame0		; get sprite height
 DrawBaseLoop
-	lda Frame0,y
-        ldx ColorFrame0,y
-        sta WSYNC
-        sta GRP0
-        stx COLUP0
-        dey
+	lda Frame0,y		; LoaD Frame0 at Y offset -> A
+        ldx ColorFrame0,y	; LoaD Colorframe 0 at Y offset -> Y
+        sta WSYNC		; Wait for horizontal SYNC
+        sta GRP0		; STore A -> GRaphics bitmap Player 0
+        stx COLUP0		; STore X -> COlor LUmanance Player 0
+        dey			; DEcrement Y
         bpl DrawBaseLoop 	; repeat until Y < 0
         rts
 
@@ -309,13 +309,13 @@ DrawBaseLoop
 ; Move missiles
 ; Missile 0 (player) moves up, missile 1 (alien) moves down.
 MoveMissiles
-	lda MissileY0
-        beq NoMoveMiss0
-        inc MissileY0
+	lda MissileY0		; LoaD Missile 0 Y pos -> A
+        beq NoMoveMiss0		; Branch if EQual
+        inc MissileY0		; INCrement Missile 0 Y pos
 NoMoveMiss0
-	lda MissileY1
-        beq NoMoveMiss1
-        dec MissileY1
+	lda MissileY1		; LoaD Missile 1 Y pos -> A
+        beq NoMoveMiss1		; Branch if EQual
+        dec MissileY1		; DECrement Missile 1 Y pos
 NoMoveMiss1
 	rts
 
@@ -324,53 +324,61 @@ NoMoveMiss1
 ReadControls
 	ldx BaseX		; player X position
 	bit SWCHA		; read joystick
-        bvs NoMoveLeft		; bit 7 set?
+        bvs NoMoveLeft		; bit 7 set? - Branch if oVerflow Set
+        			; if yes, we're moving right
+;-----------------------------------------------------------------  
+; continue here if we are moving left
         lda #%0
         sta REFP0		; reset sprite flip
-        dex
+        dex			; DECrement X
         bne NoMoveRight
 NoMoveLeft
-	bmi NoMoveRight		; bit 6 set?
+	bmi NoMoveRight		; bit 6 set? - Branch if MInus set
+        			; if yes, we're moving left (we've actually
+                                ; already moved left above, so skip over move
+                                ; right branch)
+;-----------------------------------------------------------------  
+; continue here if we are moving right
         lda #%1000
         sta REFP0		; set sprite flip
-	inx
-        bmi NoStoreX
+	inx			; increment X position of player
+        bmi NoStoreX		; if minus set, we don't store X position
 NoMoveRight
-	stx BaseX
+	stx BaseX		; STore X -> Base's X position
 NoStoreX
 ;-----------------------------------------------------------------        
 ; Shoot a missile when fire button pressed
 	bit INPT4		; read button
-        bmi NoFireButton 	; bit 7 set?
+        bmi NoFireButton 	; bit 7 set?  If not, branch
         lda #10			; add this amount to the player's Y position for missile's starting Y
-        sta MissileY0		; reset missile
-        lda BaseX
-        clc
+        sta MissileY0		; reset missile's Y position
+        lda BaseX		; Load the player's X position
+        clc			; CLear Carry flag
         adc #5			; add this amount to the player's X position for missile X position
-        sta MissileX0
-        ldx #4
+        sta MissileX0		; STore A -> Missile 0's X position
+        ldx #4			; LoaD 4 -> X
         jsr SetHorizPos		; set ball X pos to player's X
 NoFireButton
-	rts
+	rts			; ReTurn from Subroutine
 
 ;-----------------------------------------------------------------        
 ; Set horizontal position of object
 SetHorizPos
-        sta HMCLR
+        sta HMCLR		; Strobe Horizontal Movement CLeaR
         sta WSYNC       	; start a new line
         sec            		; set carry flag
 DivideLoop
         sbc #15         	; subtract 15
         bcs DivideLoop  	; branch until negative
         eor #7          	; calculate fine offset
-        asl
+        asl			; Arithmetic Shift Left
         asl
         asl
         asl
         sta HMP0,x      	; set fine offset
         sta RESP0,x     	; fix coarse position
-        sta WSYNC
-        sta HMOVE
+        sta WSYNC		; Wait for Horizontal SYNC
+        sta HMOVE		; Strobe Horizontal MOVE
         rts             	; return to caller 
 
 ;-----------------------------------------------------------------        
