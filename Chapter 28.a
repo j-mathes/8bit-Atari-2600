@@ -1,25 +1,24 @@
-	processor 6502
-	include "vcs.h"
-	include "macro.h"
-	include "xmacro.h"
-
+;-------------------------------------------------------------
+; Chapter 28 - Multisprites - Online
+;-------------------------------------------------------------	
 ; For lots of games, we'd like to display more than two sprites.
 ; There are lots of different ways to tackle this on the VCS,
 ; but we're going to try for a generalized approach that lets
 ; use have N different sprites at any X-Y coordinate, each with
 ; its own bitmap and color table. This is tricky because we can
 ; only do so much on each scanline.
-
+;
 ; Our approach is to separate the problem into three phases.
 ; In the sort phase, we sort all sprites by Y coordinate.
 ; We do one sort pass per frame, so it may take several frames
 ; for the sort to stabilize.
+;
 ; In the positioning phase, we look at the sprites in Y-sorted
 ; order, looking several lines ahead to see if a sprite is
 ; coming up. We then allocate it to one of the two player
 ; objects in hardware and set its position using the SetHorizPos
 ; method. We can set one or both of the player objects this way.
-
+;
 ; In the display phase, we display the objects which we previously
 ; assigned and positioned. First we figure out how many scanlines are
 ; required. If only one object is scheduled, we just use its height.
@@ -29,7 +28,7 @@
 ; registers at the appropriate time. We don't have time to do much
 ; else, so we don't look for any new objects to schedule until
 ; we're done with this loop.
-
+;
 ; This scheme can only display up to two objects on a given
 ; scanline, so if the system tries to schedule a third, it will 
 ; be ignored. Also, the positioning routine takes a few scanlines
@@ -40,34 +39,51 @@
 ; sprite entry is missed. In the sort phase, we move those sprites
 ; ahead of lower priority sprites in the sort order. This makes
 ; overlapping sprites flicker instead of randomly disappear.
+;-----------------------------------------------------------------
 
-	seg.u Variables
-        org $80
+        processor 6502
+        
+        include "vcs.h"
+        include "macro.h"
+        include "xmacro.h"	; timer macros
 
-Scanline byte	; current scanline
-CurIndex byte	; current sprite # to try to schedule
+;-----------------------------------------------------------------        
+; Variables SEGment
+;-----------------------------------------------------------------  
+        seg.u Variables		; set Variables SEGment (uninitialized)
+	org $80			; start Variables at $80
 
-PData0	word	; pointer (lo/hi) to player 0 bitmap data
-PData1	word	; pointer to player 1 bitmap data
-PColr0	word	; pointer to player 0 color data
-PColr1	word	; pointer to player 1 color data
-SIndx0	byte	; next y-position to draw player 0
-		; or during draw, index into sprite
-                ; zero means not assigned
-SIndx1	byte	; ... for player 1
-SSize0	byte	; sprite size for player 0
-SSize1	byte	; sprite size for player 1
+;-----------------------------------------------------------------        
+; Declare variables
+;-----------------------------------------------------------------  
+Scanline byte			; current scanline
+CurIndex byte			; current sprite # to try to schedule
 
-NSprites	equ 8       ; max # of sprites
-XPos0		ds NSprites ; x coord for each sprite
-YPos0		ds NSprites ; y coord for each sprite
-Sorted0		ds NSprites ; sorted list of sprite indices
-Priority0	ds NSprites ; sprite priority list, if missed
+PData0	word			; pointer (lo/hi) to player 0 bitmap data
+PData1	word			; pointer to player 1 bitmap data
+PColr0	word			; pointer to player 0 color data
+PColr1	word			; pointer to player 1 color data
+SIndx0	byte			; next y-position to draw player 0
+				; or during draw, index into sprite
+               			; zero means not assigned
+SIndx1	byte			; ... for player 1
+SSize0	byte			; sprite size for player 0
+SSize1	byte			; sprite size for player 1
 
-MinYDist	equ 7	; min. Y distance to consider sprite
+NSprites	equ 8       	; max # of sprites
+XPos0		ds NSprites 	; x coord for each sprite
+YPos0		ds NSprites 	; y coord for each sprite
+Sorted0		ds NSprites 	; sorted list of sprite indices
+Priority0	ds NSprites 	; sprite priority list, if missed
 
+MinYDist	equ 7		; min. Y distance to consider sprite
+
+;-----------------------------------------------------------------        
+; Get Approximate Scanline Macro
+;-----------------------------------------------------------------        
 ; Fetchs the approximate scanline (could be off by +/- 1)
 ; into A. Takes 11 or 14 cycles.
+;-----------------------------------------------------------------
 	MAC GET_APPROX_SCANLINE
         ldy INTIM
         lda Timer2Scanline,y
@@ -76,14 +92,17 @@ MinYDist	equ 7	; min. Y distance to consider sprite
 .Ok
         ENDM
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;-----------------------------------------------------------------        
+; Code SEGment
+;-----------------------------------------------------------------  
+	seg Code        	; set Code SEGment
+        org $f000		; start Code at $f000
 
-	seg Code
-        org $f000
-
-; Initialize and set initial X and Y offsets of objects.
-Start
-	CLEAN_START
+;-----------------------------------------------------------------        
+; Initialize and set initial offsets of objects.
+;-----------------------------------------------------------------
+Start	
+	CLEAN_START		; macro to safely clear memroy and TIA
 	ldx #0
         lda #10
         ldy #40
@@ -101,7 +120,9 @@ InitLoop
         inx
         cpx #NSprites
         bne InitLoop
+;----------------------------------------------------------------- 
 ; Initialize initial sort order
+;-----------------------------------------------------------------
         ldx #0
 InitLoop2
 	txa
@@ -110,9 +131,13 @@ InitLoop2
         cpx #NSprites
         bne InitLoop2
 
+;----------------------------------------------------------------- 
 ; Next frame loop
+;-----------------------------------------------------------------
 NextFrame
+;----------------------------------------------------------------- 
 ; VSYNC and VBLANK periods
+;-----------------------------------------------------------------
 	VERTICAL_SYNC
 	TIMER_SETUP 24
 ; Do joystick movement
@@ -123,7 +148,9 @@ SortLoop
 	jsr SwapSprites
         dex
         bpl SortLoop	; loop until <= 0
+;-----------------------------------------------------------------
 ; Reset scanline counter and sprite objects
+;-----------------------------------------------------------------
 	ldx #0
         stx CurIndex
         stx SIndx0
@@ -133,7 +160,9 @@ SortLoop
         TIMER_WAIT
 ; end of VBLANK
 
+;-----------------------------------------------------------------
 ; Scanline loop
+;-----------------------------------------------------------------
         TIMER_SETUP 216	; timer <- #$ff
         lda #$90
         sta COLUBK
@@ -153,7 +182,9 @@ NextFindSprite
         bcs NextFindSprite
         lda #201	; + 9 lines, end exactly
         jsr WaitForScanline
+;-----------------------------------------------------------------
 ; end of Scanline loop
+;-----------------------------------------------------------------
 
 NoMoreScanlines
 ; Clear all colors to black before overscan
@@ -167,7 +198,6 @@ NoMoreScanlines
         TIMER_WAIT
 ; Go to next frame
 	jmp NextFrame
-
 ; We were too late to display a sprite.
 ; Put it earlier in the sort order and try next frame.
 ; X = sort index
@@ -183,6 +213,10 @@ NoMoreScanlines
 ; Try to assign the next sprite in the sort order into
 ; one of the two player slots.
 ; If sprite found, uses at least 3 scanlines for SetHorizPos.
+
+;-----------------------------------------------------------------
+;
+;-----------------------------------------------------------------
 FindAnotherSprite ; subroutine entry point
 ; Get the approximate scanline
 	GET_APPROX_SCANLINE
@@ -258,7 +292,9 @@ FindAnotherSprite ; subroutine entry point
 .NoNearSprite
 	rts
 
+;-----------------------------------------------------------------
 ; Draw any scheduled sprites.
+;-----------------------------------------------------------------
 DrawSprites subroutine
 ; Wait for next precise scanline
 	lda #0		     ; 0 = wait for next
@@ -344,7 +380,9 @@ DrawSprites subroutine
         sta COLUP0
         beq .DrawSprite1 ; always taken due to lda #0
 
+;-----------------------------------------------------------------
 ; Perform one sort iteration
+;-----------------------------------------------------------------
 ; X register contains sort index (0 to NSprites-1)
 SwapSprites subroutine
 ; First compare Priority[i] and Priority[i+1]
@@ -372,10 +410,13 @@ SwapSprites subroutine
         sta Sorted0+1,x ; A -> Sorted[i+1]
 .NoSwap
 	rts
-
+;----------------------------------------------------------------- 
 ; Read joystick movement and apply to object 0
+;-----------------------------------------------------------------
 MoveJoystick subroutine
+;-----------------------------------------------------------------
 ; Move vertically
+;-----------------------------------------------------------------
 	ldx YPos0
 	lda #%00010000	;Up?
 	bit SWCHA
@@ -392,7 +433,9 @@ MoveJoystick subroutine
         inx
 .SkipMoveDown
 	stx YPos0
+;-----------------------------------------------------------------
 ; Move horizontally
+;-----------------------------------------------------------------
         ldx XPos0
 	lda #%01000000	;Left?
 	bit SWCHA
@@ -411,8 +454,9 @@ MoveJoystick subroutine
 	stx XPos0
 	rts
 
-
+;----------------------------------------------------------------- 
 ; SetHorizPos - Sets the horizontal position of an object.
+;----------------------------------------------------------------- 
 ; The X register contains the index of the desired object:
 ;  X=0: player 0
 ;  X=1: player 1
@@ -423,6 +467,7 @@ MoveJoystick subroutine
 ; because when the beam is at the far right side of the screen
 ; there is little time to do so before wrapping to the next line.
 ; It does NOT do a HMOVE and HCLR.
+;-----------------------------------------------------------------
 SetHorizPos subroutine
 	sta WSYNC	; start a new line
 	sec		; set carry flag
@@ -451,7 +496,9 @@ WaitForScanline subroutine
         bcs WaitForScanline  ; repeat until >=
         rts
 
+;----------------------------------------------------------------- 
 ; Bitmap data "standing" position
+;----------------------------------------------------------------- 
 Frame0
 	.byte #0
 	.byte #%01101100;$F6
@@ -471,7 +518,9 @@ Frame0
 	.byte #%11111110;$F2
 	.byte #%00111000;$F4
 
+;----------------------------------------------------------------- 
 ; Bitmap data "throwing" position
+;----------------------------------------------------------------- 
 Frame1
 	.byte #0
 	.byte #%01101100;$F6
@@ -491,7 +540,9 @@ Frame1
 	.byte #%11111110;$F2
 	.byte #%00111000;$F4
 
+;----------------------------------------------------------------- 
 ; Color data for each line of sprite
+;----------------------------------------------------------------- 
 ColorFrame0
 	.byte #17	; height
 	.byte #$F6;
@@ -510,8 +561,10 @@ ColorFrame0
 	.byte #$18;
 	.byte #$F2;
 	.byte #$F4;
-
+        
+;----------------------------------------------------------------- 
 ; Enemy cat-head graphics data
+;----------------------------------------------------------------- 
 EnemyFrame0
 	.byte #0
         .byte #%00111100;$AE
@@ -523,7 +576,9 @@ EnemyFrame0
         .byte #%11000011;$98
         .byte #%10000001;$98
 
+;----------------------------------------------------------------- 
 ; Enemy cat-head color data
+;----------------------------------------------------------------- 
 EnemyColorFrame0
 	.byte #9	; height
         .byte #$AE;
@@ -535,7 +590,9 @@ EnemyColorFrame0
         .byte #$98;
         .byte #$94;
 
+;----------------------------------------------------------------- 
 ; Mapping of sprite objects (0-7) to sprite data
+;----------------------------------------------------------------- 
 SpriteDataMap
 	.word Frame0,ColorFrame0
 	.word EnemyFrame0,EnemyColorFrame0
@@ -546,7 +603,9 @@ SpriteDataMap
 	.word EnemyFrame0,EnemyColorFrame0
 	.word Frame1,ColorFrame0
 
+;----------------------------------------------------------------- 
 ; Multiplication by 4 table
+;----------------------------------------------------------------- 
 ; faster than tya/asl/asl/tay
 MultBy4
 	.byte #$00,#$04,#$08,#$0c
@@ -554,8 +613,10 @@ MultBy4
 	.byte #$20,#$24,#$28,#$2c
 	.byte #$30,#$34,#$38,#$3c
 
+;----------------------------------------------------------------- 
 ; Timer -> Scanline table
-        align $100
+;----------------------------------------------------------------- 
+	align $100
 Timer2Scanline
 	.byte 215,  0,214,213,212,211,210,  0,209,208,207,206,205,204,  0,203 
 	.byte 202,201,200,199,  0,198,197,196,195,194,  0,193,192,191,190,189 
@@ -574,7 +635,9 @@ Timer2Scanline
 	.byte  27, 26, 25, 24, 23,  0, 22, 21, 20, 19, 18,  0, 17, 16, 15, 14 
 	.byte  13, 12,  0, 11, 10,  9,  8,  7,  0,  6,  5,  4,  3,  2,  0,  1
 
+;-----------------------------------------------------------------
 ; Epilogue
-	org $fffc
-	.word Start
-	.word Start
+;-----------------------------------------------------------------
+        org $fffc		; start at $fffc
+        .word Start		; reset vector at $fffc
+        .word Start		; interrupt vector at $fffe (unused in VCS)
