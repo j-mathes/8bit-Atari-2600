@@ -232,7 +232,7 @@ KernelLoop
 KernelStores
 ;-----------------------------------------------------------------        
 ; These STAs are meant to be modified
-        sta RESP0,x		; strobe RESet Player 0
+        sta RESP0,x		; strobe RESet Player 0 (sta aa,x used - exactly 4 cycles apart)
         sta RESP1,x		; strobe RESet Player 1
         sta RESP0,x		; strobe RESet Player 0
         sta RESP1,x		; strobe RESet Player 1
