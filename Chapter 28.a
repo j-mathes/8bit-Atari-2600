@@ -150,9 +150,11 @@ NextFrame
 	VERTICAL_SYNC
 	TIMER_SETUP 24
         
+;-----------------------------------------------------------------
 ; Do joystick movement
         jsr MoveJoystick
-        
+
+;-----------------------------------------------------------------
 ; Do one iteration of bubble sort on sprite indices
 	ldx #NSprites-2
         
@@ -172,38 +174,43 @@ SortLoop
         stx SSize1
         TIMER_WAIT
 ; end of VBLANK
+;-----------------------------------------------------------------
 
 ;-----------------------------------------------------------------
 ; Scanline loop
 ;-----------------------------------------------------------------
         TIMER_SETUP 216		; timer <- #$ff
-        lda #$90
+        lda #$90		; background color
         sta COLUBK
         
 NextFindSprite
-; Try to schedule sprites to both players
+;-----------------------------------------------------------------
+; Try to schedule next two sprites to both players
 	jsr FindAnotherSprite
 	jsr FindAnotherSprite
-        
+;----------------------------------------------------------------- 
 ; Apply fine offsets
 	sta WSYNC		; start next scanline
 	sta HMOVE		; apply the previous fine position(s)
-        
+
+;-----------------------------------------------------------------
 ; See if time to draw
 	jsr DrawSprites
-        
+
+;-----------------------------------------------------------------
 ; Repeat until all scanlines drawn
 	sta HMCLR		; reset the old horizontal position(s)
-	lda INTIM
+	lda INTIM		; LoaD INternal Timer -> A
         cmp #$14		; scanline 198
         bcs NextFindSprite
         lda #201		; + 9 lines, end exactly
-        jsr WaitForScanline
+        jsr WaitForScanline	; end loop on a known scanline
         
 ;-----------------------------------------------------------------
 ; end of Scanline loop
 ;-----------------------------------------------------------------
 NoMoreScanlines
+;-----------------------------------------------------------------
 ; Clear all colors to black before overscan
 	ldx #0
 	stx COLUBK
@@ -211,22 +218,27 @@ NoMoreScanlines
 	stx COLUP1
 	stx COLUPF
         
+;-----------------------------------------------------------------
 ; 30-2 lines of overscan
 	TIMER_SETUP 28
         TIMER_WAIT
         
+;-----------------------------------------------------------------
 ; Go to next frame
 	jmp NextFrame
         
+;-----------------------------------------------------------------
 ; We were too late to display a sprite.
 ; Put it earlier in the sort order and try next frame.
 ; X = sort index
 .MissedSprite subroutine
 
+;-----------------------------------------------------------------
 ; Have we already looked at all the sprites?
 ; Increment priority for this sort entry
 	inc Priority0,x
         
+;-----------------------------------------------------------------
 ; Go to next sort index, until we get to the end
         inx
         stx CurIndex
@@ -240,48 +252,59 @@ NoMoreScanlines
 ;-----------------------------------------------------------------
 FindAnotherSprite 		; subroutine entry point
 ; Get the approximate scanline
-	GET_APPROX_SCANLINE
+	GET_APPROX_SCANLINE	; which scanline? +-1
         clc
-        adc #MinYDist
+        adc #MinYDist		; bias result +7 (max number of lines
+        			; we can spend before moving to 
+                                ; display phase
         sta Scanline
         
+;-----------------------------------------------------------------
 ; Calculate the distance to next sprite 
 	ldx CurIndex
 	cpx #NSprites
-        bcs .OutOfSprites
+        bcs .OutOfSprites	; no more sprites to check
         ldy Sorted0,x		; get sprite index # in Y-sorted order
         lda YPos0,y		; get Y position of sprite
         cmp Scanline		; SpriteY - Scanline
         
+;-----------------------------------------------------------------
 ; Don't schedule the sprite if it's too soon or its scanline
 ; has already passed -- mark it missed
 	bmi .MissedSprite 	; passed it? (or > 127 lines away)
         
+;-----------------------------------------------------------------
 ; A sprite is starting soon, now we need to schedule it
 ; to either one of the player objects
         lda XPos0,y
         
+;-----------------------------------------------------------------
 ; Is player 1 available?
         ldx SIndx1
 	bne .Plyr1NotReady
         
+;-----------------------------------------------------------------
 ; Due to timing issues, we have artifacts if player 1 is
 ; too close to the left edge of the screen. So we'd prefer to
 ; put those sprites in the player 0 slot.
         cmp #34			; X < 34
         bcc .Plyr1NotReady
         
+;-----------------------------------------------------------------
 ; First let's set its horizontal offset
         ldx #1
         jsr SetHorizPos		; set horizontal position (does WSYNC)
         
+;-----------------------------------------------------------------
 ; Assign the sprite's Y position to player 1 
 	lda YPos0,y
         sta SIndx1
         
+;-----------------------------------------------------------------
 ; Get index into SpriteDataMap (index * 4)
 	ldx MultBy4,y
-        
+
+;-----------------------------------------------------------------
 ; Copy addresses of pixel/color maps to player 1
         lda SpriteDataMap,x
         sta PData1
@@ -291,7 +314,8 @@ FindAnotherSprite 		; subroutine entry point
         sta PColr1
         lda SpriteDataMap+3,x
         sta PColr1+1
-        
+
+;-----------------------------------------------------------------
 ; Get the sprite height as the first byte of the color map
         ldy #0
         lda (PColr1),y
@@ -301,7 +325,8 @@ FindAnotherSprite 		; subroutine entry point
 .Plyr1NotReady
         ldx SIndx0
         bne .NoNearSprite	; both players in use
-        
+
+;-----------------------------------------------------------------
 ; Player 0 is available
 ; This is essentially the same as the player 1 routine
         ldx #0
@@ -330,65 +355,76 @@ FindAnotherSprite 		; subroutine entry point
 ;-----------------------------------------------------------------
 DrawSprites subroutine
 ; Wait for next precise scanline
-	lda #0		     	; 0 = wait for next
+	lda #0		     	; 0 = wait for next scanline
         jsr WaitForScanline
         lda Timer2Scanline,y 	; lookup scanline #
         sta Scanline         	; save it
-        
+
+;-----------------------------------------------------------------
 ; Calculate # of lines to draw for each sprite
 ; Sprite Y - current scanline + sprite height
 	lda SIndx0
         beq .Empty0		; sprite 0 is inactive?
-	sec
-	sbc Scanline
-        clc
-        adc SSize0
+	sec			; SEt Carry flag
+	sbc Scanline		; SuBtract with Carry
+        clc			; Clear Carry flag
+        adc SSize0		; ADd with Carry
         sta SIndx0		; SIndx0 += SSize0 - Scanline
         
 .Empty0
 	lda SIndx1
         beq .Empty1		; sprite 1 is inactive?
-	sec
-	sbc Scanline
-        clc
-        adc SSize1
+	sec			; SEt Carry flag
+	sbc Scanline		; SuBtract with Carry
+        clc			; Clear Carry flag
+        adc SSize1		; ADd with Carry
         sta SIndx1		; SIndx1 += SSize1 - Scanline
         
 .Empty1
+;-----------------------------------------------------------------
 ; Find out the maximum # of lines to draw
 ; by taking the maximum of the two sprite heights
-	cmp SIndx0
-        bpl .Cmp1		; sindx0 < sindx1?
+	cmp SIndx0		; A <-> memory
+        bpl .Cmp1		; Branch if Positive (sindx0 < sindx1)?
         lda SIndx0
         
 .Cmp1
-	tax			; X = # of lines left to draw
-        beq .NoSprites		; X = 0? we're done
-        sta WSYNC
-        ; next scanline
+	tax			; Transfer A -> X = # of lines left to draw
+        beq .NoSprites		; Branch if EQual (X = 0)? then we're done
+        sta WSYNC		; Wait for horizontal SYNC
+
+;-----------------------------------------------------------------
+; next scanline - Sprite drawing loop
+;-----------------------------------------------------------------
 .DrawNextScanline
+;-----------------------------------------------------------------
 ; Make sure player 0 index is within bounds
 	ldy SIndx0
-        cpy SSize0
+        cpy SSize0		; ComPare Y <-> memory
         bcs .Inactive0		; index >= size? (or index < 0)
-        
+
+;-----------------------------------------------------------------
 ; Lookup pixels for player 0
         lda (PData0),y
-        
+
+;-----------------------------------------------------------------
 ; Do WSYNC and then quickly store pixels for player 0
         sta WSYNC
 	sta GRP0
-        
+
+;-----------------------------------------------------------------
 ; Lookup/store colors for player 0
         lda (PColr0),y
         sta COLUP0
         
 .DrawSprite1
+;-----------------------------------------------------------------
 ; Make sure player 1 index is within bounds
 	ldy SIndx1
         cpy SSize1
         bcs .Inactive1		; index >= size? (or index < 0)
-        
+
+;-----------------------------------------------------------------
 ; Lookup/store pixels and colors for player 1
 ; Note that we are already 30-40 pixels into the scanline
 ; by this point...
@@ -398,15 +434,18 @@ DrawSprites subroutine
         sta COLUP1
         
 .Inactive1
+;-----------------------------------------------------------------
 ; Decrement the two sprite indices
         dey
         sty SIndx1
         dec SIndx0
-        
+
+;-----------------------------------------------------------------
 ; Repeat until we've drawn all the scanlines for this job
 	dex
         bne .DrawNextScanline
-        
+
+;-----------------------------------------------------------------
 ; Free up both player objects by zeroing them out
 	stx SIndx0
         stx SIndx1
@@ -415,12 +454,14 @@ DrawSprites subroutine
 	sta WSYNC
 	stx GRP0
 	stx GRP1
-        
+
+;-----------------------------------------------------------------
 ; No sprites were drawn; just exit
 .NoSprites
 	rts
         
 .Inactive0
+;-----------------------------------------------------------------
 ; Alternate player 0 path when it is inactive
 	sta WSYNC
 	lda #0
@@ -431,13 +472,24 @@ DrawSprites subroutine
 ;-----------------------------------------------------------------
 ; Perform one sort iteration
 ;-----------------------------------------------------------------
+; pseudocode for bubble sort:
+;	if Priority[i] < Priority[i+1]:
+;		Priority[i] = Priority[i+1] = 0
+;		Swap Sorted[i], Sorted [i+1]
+;	else if Priority[i] >= Priority[i+1]:
+;		Swap Sorted[i], Sorted [i+1]
+;-----------------------------------------------------------------
+
+;-----------------------------------------------------------------
 ; X register contains sort index (0 to NSprites-1)
 SwapSprites subroutine
+;-----------------------------------------------------------------
 ; First compare Priority[i] and Priority[i+1]
 	lda Priority0,x
         cmp Priority0+1,x
         bcs .CompareYPos
-        
+
+;-----------------------------------------------------------------
 ; If Priority[i] < Priority[i+1], do the swap
 ; anyway after resetting priorities
         lda #0
@@ -447,6 +499,7 @@ SwapSprites subroutine
         bcc .DoSwap		; swap due to priority
         
 .CompareYPos
+;-----------------------------------------------------------------
 ; Compare Y[i] and Y[i+1]
         ldy Sorted0,x
         lda YPos0,y
@@ -455,6 +508,7 @@ SwapSprites subroutine
         bcc .NoSwap		; Y[i] < Y[i+1]? don't swap
         
 .DoSwap
+;-----------------------------------------------------------------
 ; Swap Sorted[i] and Sorted[i+1]
 	lda Sorted0,x		; A <- Sorted[i]
         sty Sorted0,x		; Y -> Sorted[i]
@@ -541,6 +595,7 @@ SetHorizPos subroutine
 	sta RESP0,x		; fix coarse position
 	rts			; return to caller
 
+;-----------------------------------------------------------------
 ;    Pass: A = desired scanline
 ; Returns: Y = timer value - 1
         align $10
