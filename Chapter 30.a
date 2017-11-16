@@ -424,34 +424,36 @@ BuildRoom subroutine
 ; Set the room colors and position the Green Man
 
 	lda RoomType
-        and #$f0
-        sta COLUBK
-        and #$7f
-        sta XPos1
-        pla			; next random value, stored
-        ora #$08
-        sta COLUPF		; fg color
-        ora #$80
-        sta YPos1
+        and #$f0		; logical AND with 1111 0000
+        sta COLUBK		; set that as background color
+        and #$7f		; logical and with 0111 1111
+        sta XPos1		; set that as starting X pos of P1
+        pla			; next random value, stored - PuLl A
+        ora #$08		; inclusive OR A with 0000 1000
+        sta COLUPF		; set that as front ground color
+        ora #$80		; inclusive OR A with 1000 0000
+        sta YPos1		; set that as starting Y pos of P1
         rts
 ;-----------------------------------------------------------------
 ; Helper function that computes X <- A*3
 ;-----------------------------------------------------------------
 MulBy3ToX
-	sta Temp
-	asl
-        clc
-        adc Temp
-        tax
+	sta Temp		; STore A -> Temp
+	asl			; A Shift Left
+        clc			; CLear Carry
+        adc Temp		; ADd with Carry A + Temp
+        tax			; Transfer A -> X
         rts
 
 ;-----------------------------------------------------------------
 ; Get next random value
 ;-----------------------------------------------------------------
+; A register holds the seed - in this case the room type
+;-----------------------------------------------------------------
 NextRandom subroutine
-	lsr
-	bcc .NoEor
-	eor #$d4
+	lsr			; Logical Shift Right A register
+	bcc .NoEor		; Branch if Carry Clear
+	eor #$d4		; Exclusive Or A <-> mem
 .NoEor:
         rts
 
@@ -459,9 +461,9 @@ NextRandom subroutine
 ; Get previous random value
 ;-----------------------------------------------------------------
 PrevRandom subroutine
-	asl
-	bcc .NoEor
-	eor #$a9
+	asl			; Arithmetic Shift Left A register
+	bcc .NoEor		; Branch if Carry Clear
+	eor #$a9		; Exclusive Or A <-> mem
 .NoEor:
         rts
 
@@ -553,7 +555,7 @@ PFRoomMid2
 	.byte #%00110000,#%00000000,#%00000000
 
 ;-----------------------------------------------------------------
-; Bitmap data "standing" position
+; Bitmap data "standing" position - Upside down
 ;-----------------------------------------------------------------
 Frame0
 	.byte #0
