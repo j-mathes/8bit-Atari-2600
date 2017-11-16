@@ -18,6 +18,10 @@
 ; Declare variables
 ;-----------------------------------------------------------------  
 PFOfs		.byte		; offset into PFData (0-20)
+
+;-----------------------------------------------------------------        
+; declare 16 bit pointers - 2 bytes
+
 SpritePtr0	.word		; pointer to bitmap for sprite 0
 SpritePtr1	.word		; pointer to bitmap for sprite 1
 ColorPtr0	.word		; pointer to colors for sprite 0
@@ -27,8 +31,8 @@ YPos0		.byte		; current Y position of sprite 0
 YPos1		.byte		; current Y position of sprite 1
 XPos0		.byte		; current X position of sprite 0
 XPos1		.byte		; current X position of sprite 1
-XPosPrev	.byte		; previous X position of sprite 0
-YPosPrev	.byte		; previous X position of sprite 1
+XPosPrev	.byte		; previous X position of a sprite
+YPosPrev	.byte		; previous y position of a sprite
 
 RoomType	.byte		; current room definition byte
 
@@ -59,34 +63,37 @@ SpriteHeight	equ 16		; hard-coded height of sprites
 ;-----------------------------------------------------------------
 Start	
 	CLEAN_START		; macro to safely clear memroy and TIA
-Data0        
-        lda #<Frame0
-        sta SpritePtr0
-        lda #>Frame0
-        sta SpritePtr0+1
-        lda #<ColorFrame0
-        sta ColorPtr0
-        lda #>ColorFrame0
-        sta ColorPtr0+1
-        lda #<Frame0
-        sta SpritePtr1
-        lda #>Frame0
-        sta SpritePtr1+1
-        lda #<ColorFrame1
-        sta ColorPtr1
-        lda #>ColorFrame1
-        sta ColorPtr1+1
+Data0
+;-----------------------------------------------------------------        
+; load pointers with addresses of lookup tables
+
+        lda #<Frame0		; LoaD A with lo byte address of Sprite frame
+        sta SpritePtr0		; STore A -> lo byte Sprite 0 pointer
+        lda #>Frame0		; LoaD A with hi byte address of Sprite 0
+        sta SpritePtr0+1	; STore A -> hi byte Sprite 0 pointer
+        lda #<ColorFrame0	; LoaD A with lo byte address of ColorFrame0
+        sta ColorPtr0		; STore A -> lo byte sprite color pointer
+        lda #>ColorFrame0	; LoaD A with hi byte address of ColorFrame0
+        sta ColorPtr0+1		; STore A -> hi byte sprite color pointer
+        lda #<Frame0		; LoaD A with lo byte address of Sprite frame
+        sta SpritePtr1		; STore A -> lo byte Sprite 1 pointer
+        lda #>Frame0		; LoaD A with hi byte address of Sprite frame
+        sta SpritePtr1+1	; STore A -> hi byte Sprite 1 pointer
+        lda #<ColorFrame1	; LoaD A with lo byte address of ColorFrame1
+        sta ColorPtr1		; STore A -> lo byte sprite color pointer
+        lda #>ColorFrame1	; LoaD A with hi byte address of ColorFrame1
+        sta ColorPtr1+1		; STore A -> hi byte sprite color pointer
         lda #242
-        sta YPos0
+        sta YPos0		; set starting Y position of sprite 0
         lda #200
-        sta YPos1
+        sta YPos1		; set starting Y position of sprite 1
         lda #58
-        sta XPos0
-        sta XPos1
+        sta XPos0		; set starting X position of sprite 0
+        sta XPos1		; set starting X position of sprite 1
         lda #1
         sta VDELP0		; updates to GRP0 will be delayed
         lda #1
-        sta RoomType
+        sta RoomType		; set room type to room 1
         jsr BuildRoom
 
 NextFrame
@@ -209,7 +216,7 @@ DrawSprites subroutine
 
         lda #SpriteHeight		; height in 2xlines
         sec
-        isb YP0				; INC yp0, then SBC yp0
+        isb YP0				; INC yp0, then SBC yp0 from A
         bcs DoDraw0			; inside bounds?
         lda #0				; no, load the padding offset (0)
 DoDraw0
@@ -223,7 +230,7 @@ DoDraw0
 
         lda #SpriteHeight		; height in 2xlines
         sec
-        isb YP1				; INC yp0, then SBC yp0
+        isb YP1				; INC yp0, then SBC yp0 from A
         bcs DoDraw1			; inside bounds?
         lda #0				; no, load the padding offset (0)
 DoDraw1
@@ -255,6 +262,9 @@ FetchPlayfield subroutine
         lda PFData,y		; load playfield byte
         rts
 
+;-----------------------------------------------------------------
+; Set horizontal position
+;-----------------------------------------------------------------
 SetHorizPos subroutine
 	sta WSYNC		; start a new line
         bit 0			; waste 3 cycles
