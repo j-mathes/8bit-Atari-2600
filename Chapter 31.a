@@ -36,7 +36,9 @@ XFrac	.byte			; X fractional
 Start	
 	CLEAN_START		; macro to safely clear memroy and TIA
         
-        lda #80
+;-----------------------------------------------------------------        
+; Set initial values to calculate line
+	lda #80
         sta X1
         lda #80
         sta Y1
@@ -51,9 +53,10 @@ NextFrame
 	VERTICAL_SYNC
 
 	TIMER_SETUP 37
+;----------------------------------------------------------------- 
 ; Set missile 0 X start position
-	lda X1	; starting X
-        ldx #2	; missile 0
+	lda X1			; starting X
+        ldx #2			; missile 0
 	jsr SetHorizPos
         sta WSYNC
         sta HMOVE
@@ -68,45 +71,47 @@ NextFrame
         sty XFrac
 ScanLoop
 	cpy Y1
-        bcc NoLine	; out of bounds (< Y1)?
+        bcc NoLine		; out of bounds (< Y1)?
         cpy Y2
-        bcs NoLine	; out of bounds (> Y2)?
+        bcs NoLine		; out of bounds (> Y2)?
+;----------------------------------------------------------------- 
 ; Add slope to X fractional error
 	lda XFrac
 	clc
-        adc Slope	; this sets carry flag
+        adc Slope		; this sets carry flag
         sta XFrac
         lda Slope+1
-        adc #7		; 7 + carry flag
-        tax		; -> X
-        lda DotWidths,x	; lookup register for missile width
-        sta Temp	; -> Temp
-        lda HMoveTable,x ; lookup HMOVE register for X offset
+        adc #7			; 7 + carry flag
+        tax			; -> X
+        lda DotWidths,x		; lookup register for missile width
+        sta Temp		; -> Temp
+        lda HMoveTable,x 	; lookup HMOVE register for X offset
         sta WSYNC
-        sta HMOVE	; apply moves on previous scanline
+        sta HMOVE		; apply moves on previous scanline
 	ldx #2
-        stx ENAM0	; enable missile
+        stx ENAM0		; enable missile
         ldx Temp
-        stx NUSIZ0	; set missile width
-        sta HMM0	; set HMM0 for next scanline
+        stx NUSIZ0		; set missile width
+        sta HMM0		; set HMM0 for next scanline
 NextScan
 	iny
         cpy #192
-        bcc ScanLoop	; any more scanlines?
-        beq DoneLine	; branch always taken
+        bcc ScanLoop		; any more scanlines?
+        beq DoneLine		; branch always taken
 NoLine
         sta WSYNC
 	lda #0
-        sta ENAM0	; hide missile
+        sta ENAM0		; hide missile
         jmp NextScan
 DoneLine
 
 	TIMER_SETUP 30
 
+;----------------------------------------------------------------- 
 ; Change slope of line
         lda Slope
         clc
-        adc #3
+        adc #3			; speed of line sweeping r to l
         sta Slope
         lda Slope+1
         adc #0
@@ -121,26 +126,30 @@ NoLineReset
 	jmp NextFrame
 
 SetHorizPos subroutine
-	sta WSYNC	; start a new line
-        bit 0		; waste 3 cycles
-	sec		; set carry flag
+	sta WSYNC		; start a new line
+        bit 0			; waste 3 cycles
+	sec			; set carry flag
 DivideLoop
-	sbc #15		; subtract 15
-	bcs DivideLoop	; branch until negative
-	eor #7		; calculate fine offset
+	sbc #15			; subtract 15
+	bcs DivideLoop		; branch until negative
+	eor #7			; calculate fine offset
 	asl
 	asl
 	asl
 	asl
-	sta RESP0,x	; fix coarse position
-	sta HMP0,x	; set fine offset
-	rts		; return to caller
+	sta RESP0,x		; fix coarse position
+	sta HMP0,x		; set fine offset
+	rts			; return to caller
 
+;----------------------------------------------------------------- 
 ; HMOVE table from -7 to +8
+;----------------------------------------------------------------- 
 HMoveTable
 	hex 7060504030201000f0e0d0c0b0a09080
 
+;----------------------------------------------------------------- 
 ; Table for NUSIZ registers
+;----------------------------------------------------------------- 
 DotWidths
 	hex 40403030201000000010203030404040
 
