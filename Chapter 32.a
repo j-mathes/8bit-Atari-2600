@@ -40,6 +40,10 @@ Chan0note	equ	$e6	; current note pitch channel 0
 Chan1note	equ	$e7	; current note pitch channel 1
 
 ;-------------------------------------------------------------
+;Macros
+;-------------------------------------------------------------
+
+;-------------------------------------------------------------
 ; Usage: NOTE pitch duration
 ; Plays a note in a pattern.
 ; pitch = 0-31
@@ -55,6 +59,7 @@ Chan1note	equ	$e7	; current note pitch channel 1
 ; Usage: TONE tone
 ; Changes the tone in a pattern.
 ; tone = 1-15
+;-------------------------------------------------------------
 	MAC TONE
 .tone	SET {1}
 	.byte .tone
@@ -62,6 +67,7 @@ Chan1note	equ	$e7	; current note pitch channel 1
 ;-------------------------------------------------------------
 ; Usage: PATTERN address
 ; Plays a pattern in a track.
+;-------------------------------------------------------------
 	MAC PATTERN
 .addr	SET {1}
 	.byte (.addr-Patterns)
@@ -70,6 +76,7 @@ Chan1note	equ	$e7	; current note pitch channel 1
 ;-------------------------------------------------------------
 ; Usage: ENDTRACK
 ; Marks the end of a track.
+;-------------------------------------------------------------
         MAC ENDTRACK
         .byte 0
         ENDM
